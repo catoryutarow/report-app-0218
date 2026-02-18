@@ -15,20 +15,15 @@ function getApp(): FirebaseApp {
   return getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 }
 
-// Lazy initialization — avoid top-level calls that crash during SSR/prerender
 let _auth: Auth | null = null;
 let _db: Firestore | null = null;
 
-export const auth: Auth = new Proxy({} as Auth, {
-  get(_target, prop, receiver) {
-    if (!_auth) _auth = getAuth(getApp());
-    return Reflect.get(_auth, prop, receiver);
-  },
-});
+export function auth(): Auth {
+  if (!_auth) _auth = getAuth(getApp());
+  return _auth;
+}
 
-export const db: Firestore = new Proxy({} as Firestore, {
-  get(_target, prop, receiver) {
-    if (!_db) _db = getFirestore(getApp());
-    return Reflect.get(_db, prop, receiver);
-  },
-});
+export function db(): Firestore {
+  if (!_db) _db = getFirestore(getApp());
+  return _db;
+}

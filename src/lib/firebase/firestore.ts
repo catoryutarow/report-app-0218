@@ -16,6 +16,8 @@ import {
 } from "firebase/firestore";
 import { db } from "./config";
 
+// Helper: all Firestore operations call db() to get the lazy-initialized instance
+
 // ---- Accounts ----
 
 export type Platform =
@@ -44,29 +46,31 @@ export type Account = {
   createdAt?: Timestamp;
 };
 
-const accountsRef = collection(db, "accounts");
+function accountsRef() {
+  return collection(db(), "accounts");
+}
 
 export async function getAccounts(): Promise<Account[]> {
-  const snap = await getDocs(query(accountsRef, orderBy("createdAt", "desc")));
+  const snap = await getDocs(query(accountsRef(), orderBy("createdAt", "desc")));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Account);
 }
 
 export async function getAccount(id: string): Promise<Account | null> {
-  const snap = await getDoc(doc(db, "accounts", id));
+  const snap = await getDoc(doc(db(), "accounts", id));
   if (!snap.exists()) return null;
   return { id: snap.id, ...snap.data() } as Account;
 }
 
 export async function createAccount(data: Omit<Account, "id" | "createdAt">) {
-  return addDoc(accountsRef, { ...data, createdAt: Timestamp.now() });
+  return addDoc(accountsRef(), { ...data, createdAt: Timestamp.now() });
 }
 
 export async function updateAccount(id: string, data: Partial<Account>) {
-  return updateDoc(doc(db, "accounts", id), data as DocumentData);
+  return updateDoc(doc(db(), "accounts", id), data as DocumentData);
 }
 
 export async function deleteAccount(id: string) {
-  return deleteDoc(doc(db, "accounts", id));
+  return deleteDoc(doc(db(), "accounts", id));
 }
 
 // ---- Posts ----
@@ -92,7 +96,7 @@ export type Post = {
 };
 
 function postsRef(accountId: string) {
-  return collection(db, "accounts", accountId, "posts");
+  return collection(db(), "accounts", accountId, "posts");
 }
 
 export async function getPosts(
@@ -124,15 +128,15 @@ export async function createPost(accountId: string, data: Omit<Post, "id">) {
 }
 
 export async function updatePost(accountId: string, postId: string, data: Partial<Post>) {
-  return updateDoc(doc(db, "accounts", accountId, "posts", postId), data as DocumentData);
+  return updateDoc(doc(db(), "accounts", accountId, "posts", postId), data as DocumentData);
 }
 
 export async function deletePost(accountId: string, postId: string) {
-  return deleteDoc(doc(db, "accounts", accountId, "posts", postId));
+  return deleteDoc(doc(db(), "accounts", accountId, "posts", postId));
 }
 
 export async function batchCreatePosts(accountId: string, posts: Omit<Post, "id">[]) {
-  const batch = writeBatch(db);
+  const batch = writeBatch(db());
   for (const post of posts) {
     const ref = doc(postsRef(accountId));
     batch.set(ref, post);
@@ -157,11 +161,11 @@ export type Snapshot = {
 };
 
 function snapshotsRef(accountId: string) {
-  return collection(db, "accounts", accountId, "snapshots");
+  return collection(db(), "accounts", accountId, "snapshots");
 }
 
 function snapshotPostsRef(accountId: string, snapshotId: string) {
-  return collection(db, "accounts", accountId, "snapshots", snapshotId, "posts");
+  return collection(db(), "accounts", accountId, "snapshots", snapshotId, "posts");
 }
 
 export async function getSnapshots(accountId: string): Promise<Snapshot[]> {
@@ -196,7 +200,7 @@ export async function createSnapshotWithPosts(
 
   // Batch create posts under snapshot (500 per batch)
   for (let i = 0; i < posts.length; i += 500) {
-    const batch = writeBatch(db);
+    const batch = writeBatch(db());
     const chunk = posts.slice(i, i + 500);
     for (const post of chunk) {
       const ref = doc(snapshotPostsRef(accountId, snapshotDocRef.id));
@@ -214,7 +218,7 @@ export async function updateSnapshot(
   data: Partial<Omit<Snapshot, "id">>
 ) {
   return updateDoc(
-    doc(db, "accounts", accountId, "snapshots", snapshotId),
+    doc(db(), "accounts", accountId, "snapshots", snapshotId),
     data as DocumentData
   );
 }
@@ -225,7 +229,7 @@ export async function addPostsToSnapshot(
   posts: Omit<Post, "id">[]
 ): Promise<void> {
   for (let i = 0; i < posts.length; i += 500) {
-    const batch = writeBatch(db);
+    const batch = writeBatch(db());
     const chunk = posts.slice(i, i + 500);
     for (const post of chunk) {
       const ref = doc(snapshotPostsRef(accountId, snapshotId));
@@ -251,9 +255,9 @@ export async function deleteSnapshot(accountId: string, snapshotId: string) {
   // Delete all posts under snapshot first
   const postsSnap = await getDocs(snapshotPostsRef(accountId, snapshotId));
   for (let i = 0; i < postsSnap.docs.length; i += 500) {
-    const batch = writeBatch(db);
+    const batch = writeBatch(db());
     postsSnap.docs.slice(i, i + 500).forEach((d) => batch.delete(d.ref));
     await batch.commit();
   }
-  await deleteDoc(doc(db, "accounts", accountId, "snapshots", snapshotId));
+  await deleteDoc(doc(db(), "accounts", accountId, "snapshots", snapshotId));
 }
