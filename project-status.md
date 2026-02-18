@@ -1,13 +1,20 @@
 # Web/SNS Report Support - Project Status
 
-> 最終更新: 2026-02-18（2回目）
+> 最終更新: 2026-02-18（3回目）
 
 ## 概要
 
 自社SNSコンサルティング業務におけるクライアント向けレポート作成を効率化するWebツール。
 6プラットフォーム（IG Feed, IG Reels, YT長尺, YT Shorts, TikTok, X）の投稿パフォーマンスデータを集約し、KPIダッシュボードとして可視化する。最終成果物はGoogle Slidesレポート（Phase 4）。
 
-## 現在のPhase: Phase 1 完了 + 品質改善中 → Phase 1.5 準備中
+## 現在のPhase: Phase 1 本番稼働中 → Phase 1.5 API連携開発中
+
+### デプロイ状況
+
+- **本番URL**: https://report-app-0218.vercel.app
+- **ホスティング**: Vercel（GitHub連携、mainブランチ自動デプロイ）
+- **Firebase**: report-e2fab（Firestore, Auth デプロイ済み）
+- **ステータス**: 社員による手動入力フローの検証中
 
 ### Phase 1 進捗: 全ステップ完了
 
@@ -29,10 +36,15 @@
 - [x] アルゴリズム重要指標の `required: true` 化（全6プラットフォーム）
 - [x] Mosseri(2025)リサーチに基づく指標description更新（IG Feed, IG Reels, TikTok）
 
+### デプロイ時の修正
+
+- **Firebase lazy init**: Proxy → getter関数（`db()`, `auth()`）に変更。Vercelプリレンダリング時にFirebase未初期化エラーが発生するため
+- **エラーバウンダリ**: `(dashboard)/error.tsx` 追加。クライアントエラー時にメッセージ表示
+
 ### ビルド状態
 
 - `tsc --noEmit`: PASS
-- `next build`: PASS
+- `next build`: PASS（環境変数なしでもPASS）
 
 ---
 
@@ -290,12 +302,15 @@ Instagram（Feed/Reels共通）:
 
 ## 未実装・TODO
 
-### Phase 1の残作業 → 全て完了
+### Phase 1の残作業 → 全て完了 + 本番デプロイ済み
 
 - [x] ~~KpiCardGridへのchannelSummary反映~~ → 二視点同時表示として実装
 - [x] ~~既存スナップショットへの投稿追加UI~~ → QuickEntryDialog `targetSnapshot` mode として実装
+- [x] Vercelデプロイ + Firebase Auth/Firestore連携確認
+- [x] Firebase lazy init修正（Vercelプリレンダリング対応）
+- [x] エラーバウンダリ追加
 
-### Phase 1.5: Instagram Graph API連携
+### Phase 1.5: API連携（開発中 — `feature/api-integration` ブランチ）
 
 - Instagram Graph APIで投稿別指標 + 期間指定アカウントInsightsを自動取得
 - 必要: Business/Creatorアカウント + Metaアプリ + 長期トークン（60日リフレッシュ）
