@@ -7,7 +7,7 @@
 自社SNSコンサルティング業務におけるクライアント向けレポート作成を効率化するWebツール。
 6プラットフォーム（IG Feed, IG Reels, YT長尺, YT Shorts, TikTok, X）の投稿パフォーマンスデータを集約し、KPIダッシュボードとして可視化する。最終成果物はGoogle Slidesレポート（Phase 4）。
 
-## 現在のPhase: Phase 1 本番稼働中 → Phase 1.5 API連携開発中
+## 現在のPhase: Phase 1 本番稼働中 / Phase 1.5 実装完了（Metaアプリセットアップ待ち）
 
 ### デプロイ状況
 
@@ -310,14 +310,17 @@ Instagram（Feed/Reels共通）:
 - [x] Firebase lazy init修正（Vercelプリレンダリング対応）
 - [x] エラーバウンダリ追加
 
-### Phase 1.5: API連携（開発中 — `feature/api-integration` ブランチ）
+### Phase 1.5: Instagram Graph API連携（実装完了 — `feature/ig-api-integration` ブランチ）
 
-- Instagram Graph APIで投稿別指標 + 期間指定アカウントInsightsを自動取得
-- 必要: Business/Creatorアカウント + Metaアプリ + 長期トークン（60日リフレッシュ）
-- エンドポイント:
-  - `GET /{media-id}/insights` — 投稿別（lifetime）
-  - `GET /{ig-user-id}/insights` — アカウント概要（`since`/`until`で期間指定可）
-- 判断: **手動入力フローを固めてから着手**（ユーザー決定）
+- [x] API Route層（token exchange/refresh/status, media list, media insights）
+- [x] Firebase Admin によるサーバーサイドトークン管理
+- [x] IG APIレスポンス → PlatformConfig metricsマッパー（Feed/Reel自動振り分け）
+- [x] IgImportDialog（投稿選択 + 指標一括取得 + スナップショット保存）
+- [x] 設定画面にAPI連携セクション追加（IgConnectForm, IgTokenStatus）
+- [x] トークン期限警告バナー（Header）
+- [x] TypeScript / Next.js ビルド PASS
+- [ ] Metaアプリ作成 + 本番テスト（手動セットアップ必要）
+- [ ] アカウントInsights自動取得（チャンネルサマリー）— Phase 2へ
 
 ### Phase 2: API自動取得全般
 
