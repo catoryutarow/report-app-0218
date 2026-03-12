@@ -14,11 +14,14 @@ import {
 } from "@/lib/firebase/firestore";
 import { getPlatformConfig } from "@/lib/platforms";
 import { platformEmoji } from "@/lib/platforms/utils";
+import { IgConnectForm } from "@/components/ig/IgConnectForm";
+import { IgTokenStatus, type TokenStatus } from "@/components/ig/IgTokenStatus";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
+  const [igStatus, setIgStatus] = useState<TokenStatus | null>(null);
 
   const fetchAccounts = useCallback(async () => {
     try {
@@ -30,9 +33,20 @@ export default function SettingsPage() {
     }
   }, []);
 
+  const fetchIgStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/ig/token/status");
+      const data = await res.json();
+      setIgStatus(data);
+    } catch {
+      setIgStatus({ connected: false });
+    }
+  }, []);
+
   useEffect(() => {
     fetchAccounts();
-  }, [fetchAccounts]);
+    fetchIgStatus();
+  }, [fetchAccounts, fetchIgStatus]);
 
   if (loading) {
     return (
@@ -50,6 +64,32 @@ export default function SettingsPage() {
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8 space-y-6">
       <h1 className="text-2xl font-bold">設定</h1>
+
+      {/* Instagram API Connection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <span>📸</span>
+            Instagram API連携
+          </CardTitle>
+          <CardDescription>
+            Instagram Graph APIで投稿の指標を自動取得します
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {igStatus === null ? (
+            <div className="h-12 bg-muted animate-pulse rounded" />
+          ) : igStatus.connected ? (
+            <IgTokenStatus
+              status={igStatus}
+              onRefreshed={fetchIgStatus}
+              onDisconnected={fetchIgStatus}
+            />
+          ) : (
+            <IgConnectForm onConnected={fetchIgStatus} />
+          )}
+        </CardContent>
+      </Card>
 
       {accounts.length === 0 ? (
         <p className="text-muted-foreground">
