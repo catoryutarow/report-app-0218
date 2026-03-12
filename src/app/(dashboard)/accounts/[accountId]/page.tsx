@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Upload, ArrowLeft, PenLine, BarChart3 } from "lucide-react";
+import { Upload, ArrowLeft, PenLine, BarChart3, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,10 +28,14 @@ import { CsvUploadDialog } from "@/components/posts/CsvUploadDialog";
 import { QuickEntryDialog } from "@/components/posts/QuickEntryDialog";
 import { PlatformGuide } from "@/components/accounts/PlatformGuide";
 import { ChannelSummaryDialog } from "@/components/kpi/ChannelSummaryDialog";
+import { IgImportDialog } from "@/components/ig/IgImportDialog";
 import { toast } from "sonner";
 
 /** YouTube platforms use CSV as primary input */
 const CSV_PRIMARY_PLATFORMS = new Set(["yt_long", "yt_short"]);
+
+/** Instagram platforms support API import */
+const IG_API_PLATFORMS = new Set(["ig_feed", "ig_reel"]);
 
 /** Filter out aggregate rows like YouTube Studio's "合計" */
 function filterAggregate(posts: Post[]): Post[] {
@@ -49,6 +53,8 @@ export default function AccountDetailPage() {
   const [quickEntryOpen, setQuickEntryOpen] = useState(false);
   const [addToSnapshotOpen, setAddToSnapshotOpen] = useState(false);
   const [channelSummaryOpen, setChannelSummaryOpen] = useState(false);
+  const [igImportOpen, setIgImportOpen] = useState(false);
+  const [igConnected, setIgConnected] = useState(false);
 
   // Snapshot state
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
@@ -96,6 +102,15 @@ export default function AccountDetailPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (account && IG_API_PLATFORMS.has(account.platform)) {
+      fetch("/api/ig/token/status")
+        .then((r) => r.json())
+        .then((data) => setIgConnected(data.connected ?? false))
+        .catch(() => setIgConnected(false));
+    }
+  }, [account]);
 
   // Load posts when snapshot selection changes
   const handleSelectSnapshot = async (id: string) => {
@@ -206,6 +221,21 @@ export default function AccountDetailPage() {
                 <Upload className="mr-1 h-4 w-4" />
                 CSV
               </Button>
+              {IG_API_PLATFORMS.has(account.platform) && (
+                igConnected ? (
+                  <Button size="sm" variant="outline" onClick={() => setIgImportOpen(true)}>
+                    <Link2 className="mr-1 h-4 w-4" />
+                    APIから取得
+                  </Button>
+                ) : (
+                  <Link href="/settings">
+                    <Button size="sm" variant="outline">
+                      <Link2 className="mr-1 h-4 w-4" />
+                      API連携を設定
+                    </Button>
+                  </Link>
+                )
+              )}
             </>
           )}
         </div>
@@ -398,6 +428,22 @@ export default function AccountDetailPage() {
           onComplete={() => {
             fetchData();
             setChannelSummaryOpen(false);
+          }}
+        />
+      )}
+
+      {/* IG API Import Dialog */}
+      {account && IG_API_PLATFORMS.has(account.platform) && (
+        <IgImportDialog
+          open={igImportOpen}
+          onOpenChange={setIgImportOpen}
+          accountId={accountId}
+          accountPlatform={account.platform as "ig_feed" | "ig_reel"}
+          existingPermalinks={new Set(currentPosts.map((p) => p.permalink).filter(Boolean) as string[])}
+          snapshots={snapshots}
+          onComplete={() => {
+            fetchData();
+            setIgImportOpen(false);
           }}
         />
       )}
