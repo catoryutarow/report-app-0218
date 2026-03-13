@@ -62,6 +62,7 @@ export default function AccountDetailPage() {
   const [compareSnapshotId, setCompareSnapshotId] = useState<string | null>(null);
   const [currentPosts, setCurrentPosts] = useState<Post[]>([]);
   const [comparePosts, setComparePosts] = useState<Post[]>([]);
+  const [allPermalinks, setAllPermalinks] = useState<Set<string>>(new Set());
 
   const fetchData = useCallback(async () => {
     try {
@@ -77,6 +78,22 @@ export default function AccountDetailPage() {
       }
       setSnapshots(snaps);
 
+      // Collect all permalinks across all snapshots for duplicate detection
+      if (snaps.length > 0) {
+        const allPostsArrays = await Promise.all(
+          snaps.map((s) => getSnapshotPosts(accountId, s.id!))
+        );
+        const links = new Set<string>();
+        for (const posts of allPostsArrays) {
+          for (const p of posts) {
+            if (p.permalink) links.add(p.permalink);
+          }
+        }
+        setAllPermalinks(links);
+      } else {
+        setAllPermalinks(new Set());
+      }
+
       // Auto-select latest snapshot
       if (snaps.length > 0) {
         const latestId = snaps[0].id!;
@@ -90,7 +107,15 @@ export default function AccountDetailPage() {
           setCompareSnapshotId(prevId);
           const cPosts = await getSnapshotPosts(accountId, prevId);
           setComparePosts(filterAggregate(cPosts));
+        } else {
+          setCompareSnapshotId(null);
+          setComparePosts([]);
         }
+      } else {
+        setSelectedSnapshotId(null);
+        setCompareSnapshotId(null);
+        setCurrentPosts([]);
+        setComparePosts([]);
       }
     } catch {
       toast.error("データの取得に失敗しました");
@@ -439,7 +464,7 @@ export default function AccountDetailPage() {
           onOpenChange={setIgImportOpen}
           accountId={accountId}
           accountPlatform={account.platform as "ig_feed" | "ig_reel"}
-          existingPermalinks={new Set(currentPosts.map((p) => p.permalink).filter(Boolean) as string[])}
+          existingPermalinks={allPermalinks}
           snapshots={snapshots}
           onComplete={() => {
             fetchData();
