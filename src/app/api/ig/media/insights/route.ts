@@ -34,7 +34,6 @@ type MediaResult = {
   permalink: string;
   timestamp: string;
   thumbnailUrl: string | null;
-  insightWarning?: string;
 };
 
 export async function POST(req: NextRequest) {
@@ -67,21 +66,15 @@ export async function POST(req: NextRequest) {
           platformId === "ig_reel" ? REEL_INSIGHT_METRICS : FEED_INSIGHT_METRICS;
 
         let insightData: InsightData["data"] = [];
-        let insightWarning: string | undefined;
-        let rawInsightResponse: unknown;
         try {
           const insights = await igFetch<InsightData>(
             `${GRAPH_API_BASE}/${mediaId}/insights?metric=${insightMetrics}`,
             stored.accessToken
           );
-          rawInsightResponse = insights;
           insightData = insights.data ?? [];
-          if (insightData.length === 0) {
-            insightWarning = `Empty insights data. Raw: ${JSON.stringify(insights).slice(0, 300)}`;
-          }
         } catch (e) {
-          insightWarning = e instanceof IgApiException ? e.igMessage : `Unknown insights error: ${e instanceof Error ? e.message : String(e)}`;
-          console.warn(`Insights unavailable for ${mediaId}: ${insightWarning}`);
+          const msg = e instanceof IgApiException ? e.igMessage : "Unknown insights error";
+          console.warn(`Insights unavailable for ${mediaId}: ${msg}`);
         }
 
         // Step 3: Map to PlatformConfig metric keys
@@ -99,7 +92,6 @@ export async function POST(req: NextRequest) {
           permalink: fields.permalink,
           timestamp: fields.timestamp,
           thumbnailUrl: fields.thumbnail_url ?? null,
-          ...(insightWarning ? { insightWarning } : {}),
         });
       } catch (e) {
         const message = e instanceof Error ? e.message : "Unknown error";
