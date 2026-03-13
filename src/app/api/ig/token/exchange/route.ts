@@ -20,8 +20,9 @@ export async function POST(req: NextRequest) {
     // Discover IG Business Account ID
     const { igUserId, accountName } = await getIgBusinessAccountId(access_token);
 
-    // Calculate expiry date
-    const expiresAt = new Date(Date.now() + expires_in * 1000);
+    // Calculate expiry date (expires_in may be string or number)
+    const expiresInSec = Number(expires_in) || 5184000; // default 60 days
+    const expiresAt = new Date(Date.now() + expiresInSec * 1000);
 
     // Save to Firestore
     await saveToken({
