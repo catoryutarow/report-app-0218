@@ -1,42 +1,19 @@
-import { initializeApp, cert, getApps, type App } from "firebase-admin/app";
-import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import { doc, getDoc, setDoc, deleteDoc, Timestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase/config";
 
-// --- Firebase Admin (server-side only) ---
-
-function getAdminApp(): App {
-  if (getApps().length === 0) {
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
-    return initializeApp({
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      credential: privateKey
-        ? cert({
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
-            privateKey,
-          })
-        : undefined,
-    });
-  }
-  return getApps()[0];
-}
-
-function adminDb() {
-  return getFirestore(getAdminApp());
-}
-
-// --- Token storage ---
+// --- Token storage (using client Firestore SDK) ---
 
 export type StoredToken = {
   accessToken: string;
   igUserId: string;
-  tokenExpiresAt: FirebaseFirestore.Timestamp;
+  tokenExpiresAt: Timestamp;
   connectedAccountName: string;
-  updatedAt: FirebaseFirestore.Timestamp;
+  updatedAt: Timestamp;
 };
 
 export async function getStoredToken(): Promise<StoredToken | null> {
-  const snap = await adminDb().doc("settings/instagram").get();
-  if (!snap.exists) return null;
+  const snap = await getDoc(doc(db(), "settings", "instagram"));
+  if (!snap.exists()) return null;
   return snap.data() as StoredToken;
 }
 
@@ -46,7 +23,7 @@ export async function saveToken(data: {
   tokenExpiresAt: Date;
   connectedAccountName: string;
 }): Promise<void> {
-  await adminDb().doc("settings/instagram").set({
+  await setDoc(doc(db(), "settings", "instagram"), {
     accessToken: data.accessToken,
     igUserId: data.igUserId,
     tokenExpiresAt: Timestamp.fromDate(data.tokenExpiresAt),
@@ -56,7 +33,7 @@ export async function saveToken(data: {
 }
 
 export async function deleteToken(): Promise<void> {
-  await adminDb().doc("settings/instagram").delete();
+  await deleteDoc(doc(db(), "settings", "instagram"));
 }
 
 // --- IG API helpers ---
