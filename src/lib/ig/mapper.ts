@@ -51,8 +51,6 @@ export function mapFeedMetrics(
 
 /**
  * Map IG API data to PlatformConfig metric keys for ig_reel.
- *
- * Note: total_watch_time_ms and duration_sec are NOT available from IG API.
  */
 export function mapReelMetrics(
   fields: IgMediaFields,
@@ -69,6 +67,16 @@ export function mapReelMetrics(
   if (insightMap.has("reach")) metrics.reach = insightMap.get("reach")!;
   if (insightMap.has("saved")) metrics.saves = insightMap.get("saved")!;
   if (insightMap.has("shares")) metrics.shares = insightMap.get("shares")!;
+
+  // Watch time metrics (v22.0)
+  // ig_reels_video_view_total_time returns ms → maps to total_watch_time_ms
+  if (insightMap.has("ig_reels_video_view_total_time")) {
+    metrics.total_watch_time_ms = insightMap.get("ig_reels_video_view_total_time")!;
+  }
+  // ig_reels_avg_watch_time returns ms → store raw for debugging/display
+  if (insightMap.has("ig_reels_avg_watch_time")) {
+    metrics.ig_reels_avg_watch_time = insightMap.get("ig_reels_avg_watch_time")!;
+  }
 
   if (fields.like_count != null) metrics.likes = fields.like_count;
   if (fields.comments_count != null) metrics.comments = fields.comments_count;
