@@ -68,14 +68,19 @@ export async function POST(req: NextRequest) {
 
         let insightData: InsightData["data"] = [];
         let insightWarning: string | undefined;
+        let rawInsightResponse: unknown;
         try {
           const insights = await igFetch<InsightData>(
             `${GRAPH_API_BASE}/${mediaId}/insights?metric=${insightMetrics}`,
             stored.accessToken
           );
+          rawInsightResponse = insights;
           insightData = insights.data ?? [];
+          if (insightData.length === 0) {
+            insightWarning = `Empty insights data. Raw: ${JSON.stringify(insights).slice(0, 300)}`;
+          }
         } catch (e) {
-          insightWarning = e instanceof IgApiException ? e.igMessage : "Unknown insights error";
+          insightWarning = e instanceof IgApiException ? e.igMessage : `Unknown insights error: ${e instanceof Error ? e.message : String(e)}`;
           console.warn(`Insights unavailable for ${mediaId}: ${insightWarning}`);
         }
 
