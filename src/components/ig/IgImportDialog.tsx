@@ -189,6 +189,7 @@ export function IgImportDialog({
         publishedAt: Timestamp.fromDate(parseISO(r.timestamp)),
         capturedAt: now,
         permalink: r.permalink,
+        thumbnailUrl: r.thumbnailUrl ?? undefined,
         tags: {},
         metrics: r.metrics,
         calculatedKpis: calculatePostKpis(config.kpis, r.metrics),

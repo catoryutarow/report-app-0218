@@ -40,8 +40,8 @@ export function PostsTable({ posts, config, onEditPost }: Props) {
         accessorKey: "postKey",
         header: "投稿",
         cell: ({ row }) => {
-          const { postKey, title, permalink } = row.original;
-          const thumb = getThumbnailUrl(config.id, postKey);
+          const { postKey, title, permalink, thumbnailUrl } = row.original;
+          const thumb = getThumbnailUrl(config.id, postKey, thumbnailUrl);
           const content = (
             <div className="flex items-center gap-2">
               {thumb && (

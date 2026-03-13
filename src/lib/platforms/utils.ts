@@ -14,9 +14,15 @@ export const platformColors: Record<Platform, string> = {
 
 /**
  * Get thumbnail URL for a post. YouTube thumbnails are available
- * without API key via img.youtube.com.
+ * without API key via img.youtube.com. IG thumbnails are stored
+ * on the post from API import.
  */
-export function getThumbnailUrl(platformId: string, postKey: string): string | null {
+export function getThumbnailUrl(
+  platformId: string,
+  postKey: string,
+  storedUrl?: string | null
+): string | null {
+  if (storedUrl) return storedUrl;
   if ((platformId === "yt_long" || platformId === "yt_short") && postKey && !postKey.startsWith("csv_")) {
     return `https://img.youtube.com/vi/${postKey}/mqdefault.jpg`;
   }

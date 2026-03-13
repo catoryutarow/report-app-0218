@@ -84,6 +84,7 @@ export type Post = {
   /** When the metrics were actually recorded/observed (for data freshness tracking) */
   capturedAt?: Timestamp;
   permalink?: string;
+  thumbnailUrl?: string;
   tags: {
     format?: string;
     theme?: string;

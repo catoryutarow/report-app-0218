@@ -97,7 +97,7 @@ export function TopPostsPanel({ posts, config, limit = 5 }: Props) {
         ) : (
           <div className="space-y-3">
             {sorted.map((post, i) => {
-              const thumb = getThumbnailUrl(config.id, post.postKey);
+              const thumb = getThumbnailUrl(config.id, post.postKey, post.thumbnailUrl);
               const displayValue = selected.type === "kpi"
                 ? post.calculatedKpis?.[selected.key]
                 : post.metrics?.[selected.key];

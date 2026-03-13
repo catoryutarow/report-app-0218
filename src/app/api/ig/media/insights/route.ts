@@ -24,6 +24,7 @@ type MediaFields = {
   permalink: string;
   caption?: string;
   thumbnail_url?: string;
+  media_url?: string;
 };
 
 type MediaResult = {
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
       try {
         // Step 1: Get media fields
         const fields = await igFetch<MediaFields>(
-          `${GRAPH_API_BASE}/${mediaId}?fields=id,like_count,comments_count,media_type,media_product_type,timestamp,permalink,caption,thumbnail_url`,
+          `${GRAPH_API_BASE}/${mediaId}?fields=id,like_count,comments_count,media_type,media_product_type,timestamp,permalink,caption,thumbnail_url,media_url`,
           stored.accessToken
         );
 
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest) {
           caption: fields.caption ?? "",
           permalink: fields.permalink,
           timestamp: fields.timestamp,
-          thumbnailUrl: fields.thumbnail_url ?? null,
+          thumbnailUrl: fields.thumbnail_url ?? fields.media_url ?? null,
         });
       } catch (e) {
         const message = e instanceof Error ? e.message : "Unknown error";
