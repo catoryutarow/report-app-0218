@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Upload, ArrowLeft, PenLine, BarChart3, Link2 } from "lucide-react";
+import { Upload, ArrowLeft, PenLine, BarChart3, Link2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,6 +17,7 @@ import {
   type Snapshot,
 } from "@/lib/firebase/firestore";
 import { getPlatformConfig } from "@/lib/platforms";
+import type { PlatformConfig } from "@/lib/platforms/types";
 import { platformColors, platformEmoji } from "@/lib/platforms/utils";
 import { KpiCardGrid } from "@/components/kpi/KpiCardGrid";
 import { SnapshotSelector } from "@/components/kpi/SnapshotSelector";
@@ -30,6 +31,12 @@ import { PostEditDialog } from "@/components/posts/PostEditDialog";
 import { PlatformGuide } from "@/components/accounts/PlatformGuide";
 import { ChannelSummaryDialog } from "@/components/kpi/ChannelSummaryDialog";
 import { IgImportDialog } from "@/components/ig/IgImportDialog";
+import {
+  buildCsvExport,
+  buildJsonExport,
+  downloadCsv,
+  downloadJson,
+} from "@/lib/export/snapshot-export";
 import { toast } from "sonner";
 
 /** YouTube platforms use CSV as primary input */
@@ -280,14 +287,22 @@ export default function AccountDetailPage() {
             onCompareSelect={handleSelectCompare}
           />
           {selectedSnapshot && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setAddToSnapshotOpen(true)}
-            >
-              <PenLine className="mr-1 h-4 w-4" />
-              投稿を追加
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAddToSnapshotOpen(true)}
+              >
+                <PenLine className="mr-1 h-4 w-4" />
+                投稿を追加
+              </Button>
+              <ExportButtons
+                snapshot={selectedSnapshot}
+                posts={currentPosts}
+                config={config}
+                targets={account.targets}
+              />
+            </>
           )}
         </div>
       ) : (
@@ -494,6 +509,46 @@ export default function AccountDetailPage() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+/** Export CSV / JSON buttons */
+function ExportButtons({
+  snapshot,
+  posts,
+  config,
+  targets,
+}: {
+  snapshot: Snapshot;
+  posts: Post[];
+  config: PlatformConfig;
+  targets: Record<string, number>;
+}) {
+  const base = `${config.id}_${snapshot.label.replace(/[\s/]/g, "_")}`;
+
+  const handleCsv = () => {
+    const csv = buildCsvExport({ snapshot, posts, config, targets });
+    downloadCsv(csv, `${base}.csv`);
+    toast.success("CSVをダウンロードしました");
+  };
+
+  const handleJson = () => {
+    const data = buildJsonExport({ snapshot, posts, config, targets });
+    downloadJson(data, `${base}.json`);
+    toast.success("JSONをダウンロードしました");
+  };
+
+  return (
+    <div className="flex gap-1">
+      <Button size="sm" variant="outline" onClick={handleCsv}>
+        <Download className="mr-1 h-4 w-4" />
+        CSV
+      </Button>
+      <Button size="sm" variant="outline" onClick={handleJson}>
+        <Download className="mr-1 h-4 w-4" />
+        JSON
+      </Button>
     </div>
   );
 }
