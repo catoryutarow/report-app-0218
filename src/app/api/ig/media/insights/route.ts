@@ -34,6 +34,7 @@ type MediaResult = {
   permalink: string;
   timestamp: string;
   thumbnailUrl: string | null;
+  insightWarning?: string;
 };
 
 export async function POST(req: NextRequest) {
@@ -93,6 +94,7 @@ export async function POST(req: NextRequest) {
           permalink: fields.permalink,
           timestamp: fields.timestamp,
           thumbnailUrl: fields.thumbnail_url ?? null,
+          ...(insightWarning ? { insightWarning } : {}),
         });
       } catch (e) {
         const message = e instanceof Error ? e.message : "Unknown error";
