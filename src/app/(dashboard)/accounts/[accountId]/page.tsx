@@ -12,6 +12,7 @@ import {
   getSnapshots,
   getSnapshotPosts,
   deleteSnapshot,
+  updateSnapshotPost,
   type Account,
   type Post,
   type Snapshot,
@@ -181,6 +182,47 @@ export default function AccountDetailPage() {
       toast.error("削除に失敗しました");
     }
   };
+
+  // Auto-backfill thumbnails for IG API posts missing them
+  useEffect(() => {
+    if (!account || !IG_API_PLATFORMS.has(account.platform)) return;
+    if (!selectedSnapshotId || !igConnected) return;
+
+    const missing = currentPosts.filter(
+      (p) => p.source === "api" && !p.thumbnailUrl && p.id
+    );
+    if (missing.length === 0) return;
+
+    const mediaIds = missing.map((p) => p.postKey);
+    fetch("/api/ig/media/thumbnails", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountId, mediaIds }),
+    })
+      .then((r) => r.json())
+      .then(async (data) => {
+        const thumbnails: Record<string, string | null> = data.thumbnails ?? {};
+        let updated = false;
+        for (const post of missing) {
+          const url = thumbnails[post.postKey];
+          if (url) {
+            await updateSnapshotPost(accountId, selectedSnapshotId, post.id!, {
+              thumbnailUrl: url,
+            });
+            updated = true;
+          }
+        }
+        if (updated) {
+          // Reload posts to show thumbnails
+          const posts = await getSnapshotPosts(accountId, selectedSnapshotId);
+          setCurrentPosts(filterAggregate(posts));
+        }
+      })
+      .catch(() => {
+        // Silent fail - thumbnails are not critical
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPosts.length, selectedSnapshotId, igConnected]);
 
   if (loading) {
     return (
