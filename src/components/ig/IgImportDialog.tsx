@@ -124,6 +124,19 @@ export function IgImportDialog({
     return true;
   });
 
+  // When date filter changes, keep only visible items selected
+  useEffect(() => {
+    const visibleIds = new Set(filteredMedia.map((m) => m.igMediaId));
+    setSelected((prev) => {
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (visibleIds.has(id)) next.add(id);
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFrom, dateTo]);
+
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
