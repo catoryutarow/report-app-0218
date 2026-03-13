@@ -5,7 +5,7 @@ import { toPlatformId, mapMetrics } from "@/lib/ig/mapper";
 const GRAPH_API_BASE = "https://graph.facebook.com/v22.0";
 
 const FEED_INSIGHT_METRICS = "impressions,reach,saved,shares";
-const REEL_INSIGHT_METRICS = "ig_reels_aggregated_all_plays_count,reach,saved,shares";
+const REEL_INSIGHT_METRICS = "views,reach,saved,shares";
 
 type InsightData = {
   data: Array<{
