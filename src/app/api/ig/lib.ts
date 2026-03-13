@@ -132,40 +132,68 @@ export async function refreshToken(currentToken: string): Promise<{
 
 /**
  * Get the IG Business Account ID linked to the user's Facebook Page.
+ * Tries me/accounts first, then falls back to businesses{owned_pages}
+ * for pages managed through a Business Portfolio.
  */
 export async function getIgBusinessAccountId(token: string): Promise<{
   igUserId: string;
   accountName: string;
 }> {
-  // Step 1: Get user's pages
+  // Step 1: Collect pages from me/accounts
   const pagesRes = await igFetch<{
     data: Array<{ id: string; name: string; access_token: string }>;
   }>(`${GRAPH_API_BASE}/me/accounts`, token);
 
-  if (!pagesRes.data || pagesRes.data.length === 0) {
-    throw new Error("Facebookページが見つかりません");
+  let pages = pagesRes.data ?? [];
+
+  // Step 1b: If no pages found, try Business Portfolio route
+  if (pages.length === 0) {
+    try {
+      const bizRes = await igFetch<{
+        businesses?: {
+          data: Array<{
+            owned_pages?: {
+              data: Array<{ id: string; name: string }>;
+            };
+          }>;
+        };
+      }>(`${GRAPH_API_BASE}/me?fields=businesses{owned_pages}`, token);
+
+      for (const biz of bizRes.businesses?.data ?? []) {
+        for (const page of biz.owned_pages?.data ?? []) {
+          pages.push({ ...page, access_token: "" });
+        }
+      }
+    } catch {
+      // business_management permission may not be granted — ignore
+    }
   }
 
-  // Step 2: Get IG Business Account from first page
-  const page = pagesRes.data[0];
-  const igRes = await igFetch<{
-    instagram_business_account?: { id: string };
-  }>(`${GRAPH_API_BASE}/${page.id}?fields=instagram_business_account`, token);
-
-  if (!igRes.instagram_business_account) {
-    throw new Error("このFacebookページにInstagramビジネスアカウントがリンクされていません");
+  if (pages.length === 0) {
+    throw new Error("Facebookページが見つかりません。business_managementパーミッションを含めてトークンを再生成してください。");
   }
 
-  // Step 3: Get IG account username
-  const igAccount = await igFetch<{ username: string }>(
-    `${GRAPH_API_BASE}/${igRes.instagram_business_account.id}?fields=username`,
-    token
-  );
+  // Step 2: Find first page with an IG Business Account
+  for (const page of pages) {
+    const igRes = await igFetch<{
+      instagram_business_account?: { id: string };
+    }>(`${GRAPH_API_BASE}/${page.id}?fields=instagram_business_account`, token);
 
-  return {
-    igUserId: igRes.instagram_business_account.id,
-    accountName: `@${igAccount.username}`,
-  };
+    if (igRes.instagram_business_account) {
+      // Step 3: Get IG account username
+      const igAccount = await igFetch<{ username: string }>(
+        `${GRAPH_API_BASE}/${igRes.instagram_business_account.id}?fields=username`,
+        token
+      );
+
+      return {
+        igUserId: igRes.instagram_business_account.id,
+        accountName: `@${igAccount.username}`,
+      };
+    }
+  }
+
+  throw new Error("InstagramビジネスアカウントがリンクされたFacebookページが見つかりません");
 }
 
 /**
