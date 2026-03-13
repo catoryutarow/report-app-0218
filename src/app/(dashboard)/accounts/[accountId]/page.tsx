@@ -130,12 +130,12 @@ export default function AccountDetailPage() {
 
   useEffect(() => {
     if (account && IG_API_PLATFORMS.has(account.platform)) {
-      fetch("/api/ig/token/status")
+      fetch(`/api/ig/token/status?accountId=${accountId}`)
         .then((r) => r.json())
         .then((data) => setIgConnected(data.connected ?? false))
         .catch(() => setIgConnected(false));
     }
-  }, [account]);
+  }, [account, accountId]);
 
   // Load posts when snapshot selection changes
   const handleSelectSnapshot = async (id: string) => {

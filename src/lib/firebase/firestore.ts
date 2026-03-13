@@ -263,28 +263,4 @@ export async function deleteSnapshot(accountId: string, snapshotId: string) {
   await deleteDoc(doc(db(), "accounts", accountId, "snapshots", snapshotId));
 }
 
-// ---- Instagram API Settings ----
-
-export type IgSettings = {
-  accessToken: string;
-  igUserId: string;
-  tokenExpiresAt: Timestamp;
-  connectedAccountName: string;
-  updatedAt: Timestamp;
-};
-
-export type IgSettingsPublic = Omit<IgSettings, "accessToken">;
-
-export async function getIgSettings(): Promise<IgSettings | null> {
-  const snap = await getDoc(doc(db(), "settings", "instagram"));
-  if (!snap.exists()) return null;
-  return snap.data() as IgSettings;
-}
-
-export async function saveIgSettings(data: IgSettings): Promise<void> {
-  await setDoc(doc(db(), "settings", "instagram"), data);
-}
-
-export async function deleteIgSettings(): Promise<void> {
-  await deleteDoc(doc(db(), "settings", "instagram"));
-}
+// ---- Instagram API Settings (per-account, managed via src/app/api/ig/lib.ts) ----

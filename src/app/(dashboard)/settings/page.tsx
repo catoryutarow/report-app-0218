@@ -18,10 +18,12 @@ import { IgConnectForm } from "@/components/ig/IgConnectForm";
 import { IgTokenStatus, type TokenStatus } from "@/components/ig/IgTokenStatus";
 import { toast } from "sonner";
 
+/** Instagram platforms support API import */
+const IG_API_PLATFORMS = new Set(["ig_feed", "ig_reel"]);
+
 export default function SettingsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const [igStatus, setIgStatus] = useState<TokenStatus | null>(null);
 
   const fetchAccounts = useCallback(async () => {
     try {
@@ -33,20 +35,9 @@ export default function SettingsPage() {
     }
   }, []);
 
-  const fetchIgStatus = useCallback(async () => {
-    try {
-      const res = await fetch("/api/ig/token/status");
-      const data = await res.json();
-      setIgStatus(data);
-    } catch {
-      setIgStatus({ connected: false });
-    }
-  }, []);
-
   useEffect(() => {
     fetchAccounts();
-    fetchIgStatus();
-  }, [fetchAccounts, fetchIgStatus]);
+  }, [fetchAccounts]);
 
   if (loading) {
     return (
@@ -65,41 +56,16 @@ export default function SettingsPage() {
     <div className="container mx-auto max-w-3xl px-4 py-8 space-y-6">
       <h1 className="text-2xl font-bold">設定</h1>
 
-      {/* Instagram API Connection */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <span>📸</span>
-            Instagram API連携
-          </CardTitle>
-          <CardDescription>
-            Instagram Graph APIで投稿の指標を自動取得します
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {igStatus === null ? (
-            <div className="h-12 bg-muted animate-pulse rounded" />
-          ) : igStatus.connected ? (
-            <IgTokenStatus
-              status={igStatus}
-              onRefreshed={fetchIgStatus}
-              onDisconnected={fetchIgStatus}
-            />
-          ) : (
-            <IgConnectForm onConnected={fetchIgStatus} />
-          )}
-        </CardContent>
-      </Card>
-
       {accounts.length === 0 ? (
         <p className="text-muted-foreground">
-          アカウントがありません。ダッシュボームから追加してください。
+          アカウントがありません。ダッシュボードから追加してください。
         </p>
       ) : (
         accounts.map((account) => (
           <AccountSettings
             key={account.id}
             account={account}
+            showIgConnect={IG_API_PLATFORMS.has(account.platform)}
             onSaved={fetchAccounts}
           />
         ))
@@ -110,13 +76,16 @@ export default function SettingsPage() {
 
 function AccountSettings({
   account,
+  showIgConnect,
   onSaved,
 }: {
   account: Account;
+  showIgConnect: boolean;
   onSaved: () => void;
 }) {
   const config = getPlatformConfig(account.platform);
   const emoji = platformEmoji[account.platform];
+  const accountId = account.id!;
 
   const [targets, setTargets] = useState<Record<string, string>>(() => {
     const t: Record<string, string> = {};
@@ -132,15 +101,31 @@ function AccountSettings({
   const [newTag, setNewTag] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
+  // IG token status (per-account)
+  const [igStatus, setIgStatus] = useState<TokenStatus | null>(null);
+
+  const fetchIgStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/ig/token/status?accountId=${accountId}`);
+      const data = await res.json();
+      setIgStatus(data);
+    } catch {
+      setIgStatus({ connected: false });
+    }
+  }, [accountId]);
+
+  useEffect(() => {
+    if (showIgConnect) fetchIgStatus();
+  }, [showIgConnect, fetchIgStatus]);
+
   const handleSave = async () => {
-    if (!account.id) return;
     setSaving(true);
     try {
       const parsedTargets: Record<string, number> = {};
       for (const [key, val] of Object.entries(targets)) {
         if (val !== "") parsedTargets[key] = parseFloat(val);
       }
-      await updateAccount(account.id, { targets: parsedTargets, tags });
+      await updateAccount(accountId, { targets: parsedTargets, tags });
       toast.success("設定を保存しました");
       onSaved();
     } catch {
@@ -180,6 +165,25 @@ function AccountSettings({
         <CardDescription>{config.label} - @{account.handle}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* IG API Connection (per-account) */}
+        {showIgConnect && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">Instagram API連携</h3>
+            {igStatus === null ? (
+              <div className="h-12 bg-muted animate-pulse rounded" />
+            ) : igStatus.connected ? (
+              <IgTokenStatus
+                accountId={accountId}
+                status={igStatus}
+                onRefreshed={fetchIgStatus}
+                onDisconnected={fetchIgStatus}
+              />
+            ) : (
+              <IgConnectForm accountId={accountId} onConnected={fetchIgStatus} />
+            )}
+          </div>
+        )}
+
         {/* Target KPIs */}
         <div>
           <h3 className="text-sm font-medium mb-3">目標KPI</h3>

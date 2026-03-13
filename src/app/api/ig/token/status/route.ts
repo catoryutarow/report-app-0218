@@ -1,8 +1,10 @@
-import { getStoredToken } from "../../lib";
+import { NextRequest } from "next/server";
+import { getStoredToken, requireAccountId } from "../../lib";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const stored = await getStoredToken();
+    const accountId = requireAccountId(req);
+    const stored = await getStoredToken(accountId);
 
     if (!stored) {
       return Response.json({ connected: false });

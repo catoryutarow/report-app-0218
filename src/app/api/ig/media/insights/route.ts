@@ -38,12 +38,16 @@ type MediaResult = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { mediaIds } = await req.json();
+    const body = await req.json();
+    const { mediaIds, accountId } = body;
+    if (!accountId || typeof accountId !== "string") {
+      return Response.json({ error: "accountId is required" }, { status: 400 });
+    }
     if (!Array.isArray(mediaIds) || mediaIds.length === 0) {
       return Response.json({ error: "mediaIds array is required" }, { status: 400 });
     }
 
-    const stored = await getStoredToken();
+    const stored = await getStoredToken(accountId);
     if (!stored) {
       return Response.json({ error: "No token configured" }, { status: 401 });
     }

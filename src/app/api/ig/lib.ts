@@ -1,7 +1,7 @@
 import { doc, getDoc, setDoc, deleteDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 
-// --- Token storage (using client Firestore SDK) ---
+// --- Token storage (per-account, using client Firestore SDK) ---
 
 export type StoredToken = {
   accessToken: string;
@@ -11,19 +11,23 @@ export type StoredToken = {
   updatedAt: Timestamp;
 };
 
-export async function getStoredToken(): Promise<StoredToken | null> {
-  const snap = await getDoc(doc(db(), "settings", "instagram"));
+function igTokenDoc(accountId: string) {
+  return doc(db(), "accounts", accountId, "settings", "instagram");
+}
+
+export async function getStoredToken(accountId: string): Promise<StoredToken | null> {
+  const snap = await getDoc(igTokenDoc(accountId));
   if (!snap.exists()) return null;
   return snap.data() as StoredToken;
 }
 
-export async function saveToken(data: {
+export async function saveToken(accountId: string, data: {
   accessToken: string;
   igUserId: string;
   tokenExpiresAt: Date;
   connectedAccountName: string;
 }): Promise<void> {
-  await setDoc(doc(db(), "settings", "instagram"), {
+  await setDoc(igTokenDoc(accountId), {
     accessToken: data.accessToken,
     igUserId: data.igUserId,
     tokenExpiresAt: Timestamp.fromDate(data.tokenExpiresAt),
@@ -32,8 +36,8 @@ export async function saveToken(data: {
   });
 }
 
-export async function deleteToken(): Promise<void> {
-  await deleteDoc(doc(db(), "settings", "instagram"));
+export async function deleteToken(accountId: string): Promise<void> {
+  await deleteDoc(igTokenDoc(accountId));
 }
 
 // --- IG API helpers ---
@@ -117,21 +121,17 @@ export async function refreshToken(currentToken: string): Promise<{
 
 /**
  * Get the IG Business Account ID linked to the user's Facebook Page.
- * Tries me/accounts first, then falls back to businesses{owned_pages}
- * for pages managed through a Business Portfolio.
  */
 export async function getIgBusinessAccountId(token: string): Promise<{
   igUserId: string;
   accountName: string;
 }> {
-  // Step 1: Collect pages from me/accounts
   const pagesRes = await igFetch<{
     data: Array<{ id: string; name: string; access_token: string }>;
   }>(`${GRAPH_API_BASE}/me/accounts`, token);
 
   let pages = pagesRes.data ?? [];
 
-  // Step 1b: If no pages found, try Business Portfolio route
   if (pages.length === 0) {
     try {
       const bizRes = await igFetch<{
@@ -158,14 +158,12 @@ export async function getIgBusinessAccountId(token: string): Promise<{
     throw new Error("Facebookページが見つかりません。business_managementパーミッションを含めてトークンを再生成してください。");
   }
 
-  // Step 2: Find first page with an IG Business Account
   for (const page of pages) {
     const igRes = await igFetch<{
       instagram_business_account?: { id: string };
     }>(`${GRAPH_API_BASE}/${page.id}?fields=instagram_business_account`, token);
 
     if (igRes.instagram_business_account) {
-      // Step 3: Get IG account username
       const igAccount = await igFetch<{ username: string }>(
         `${GRAPH_API_BASE}/${igRes.instagram_business_account.id}?fields=username`,
         token
@@ -198,4 +196,13 @@ export function errorResponse(error: unknown): Response {
   }
   const message = error instanceof Error ? error.message : "Internal server error";
   return Response.json({ error: message }, { status: 500 });
+}
+
+/** Extract and validate accountId from request searchParams */
+export function requireAccountId(req: { nextUrl: URL } | null, body?: { accountId?: string }): string {
+  const id = req?.nextUrl?.searchParams?.get("accountId") ?? body?.accountId;
+  if (!id || typeof id !== "string") {
+    throw new Error("accountId is required");
+  }
+  return id;
 }

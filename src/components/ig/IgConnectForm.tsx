@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 type Props = {
+  accountId: string;
   onConnected: () => void;
 };
 
-export function IgConnectForm({ onConnected }: Props) {
+export function IgConnectForm({ accountId, onConnected }: Props) {
   const [shortToken, setShortToken] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -23,7 +24,7 @@ export function IgConnectForm({ onConnected }: Props) {
       const res = await fetch("/api/ig/token/exchange", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shortToken: shortToken.trim() }),
+        body: JSON.stringify({ shortToken: shortToken.trim(), accountId }),
       });
       const data = await res.json();
 

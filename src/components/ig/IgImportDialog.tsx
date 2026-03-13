@@ -78,7 +78,7 @@ export function IgImportDialog({
   const fetchMedia = async () => {
     setFetching(true);
     try {
-      const res = await fetch("/api/ig/media?limit=50");
+      const res = await fetch(`/api/ig/media?limit=50&accountId=${accountId}`);
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error ?? "投稿一覧の取得に失敗しました");
@@ -163,7 +163,7 @@ export function IgImportDialog({
       const res = await fetch("/api/ig/media/insights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaIds: Array.from(selected) }),
+        body: JSON.stringify({ mediaIds: Array.from(selected), accountId }),
       });
       const data = await res.json();
       if (!res.ok) {

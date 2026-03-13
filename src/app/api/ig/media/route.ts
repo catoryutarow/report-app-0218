@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getStoredToken, igFetch, errorResponse } from "../lib";
+import { getStoredToken, igFetch, errorResponse, requireAccountId } from "../lib";
 
 const GRAPH_API_BASE = "https://graph.facebook.com/v22.0";
 
@@ -15,7 +15,8 @@ type IgMedia = {
 
 export async function GET(req: NextRequest) {
   try {
-    const stored = await getStoredToken();
+    const accountId = requireAccountId(req);
+    const stored = await getStoredToken(accountId);
     if (!stored) {
       return Response.json({ error: "No token configured" }, { status: 401 });
     }

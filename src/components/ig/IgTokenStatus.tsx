@@ -16,19 +16,24 @@ export type TokenStatus = {
 };
 
 type Props = {
+  accountId: string;
   status: TokenStatus;
   onRefreshed: () => void;
   onDisconnected: () => void;
 };
 
-export function IgTokenStatus({ status, onRefreshed, onDisconnected }: Props) {
+export function IgTokenStatus({ accountId, status, onRefreshed, onDisconnected }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      const res = await fetch("/api/ig/token/refresh", { method: "POST" });
+      const res = await fetch("/api/ig/token/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId }),
+      });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error ?? "トークンの更新に失敗しました");
@@ -47,7 +52,7 @@ export function IgTokenStatus({ status, onRefreshed, onDisconnected }: Props) {
     if (!confirm("Instagram API連携を解除しますか？")) return;
     setDisconnecting(true);
     try {
-      const res = await fetch("/api/ig/token/exchange", { method: "DELETE" });
+      const res = await fetch(`/api/ig/token/exchange?accountId=${accountId}`, { method: "DELETE" });
       if (!res.ok) {
         toast.error("解除に失敗しました");
         return;
