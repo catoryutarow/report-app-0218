@@ -64,7 +64,11 @@ export function mapReelMetrics(
 
   const metrics: Record<string, number> = {};
 
-  if (insightMap.has("plays")) metrics.plays = insightMap.get("plays")!;
+  // plays: try new metric name first, then legacy
+  const playsKey = insightMap.has("ig_reels_aggregated_all_plays_count")
+    ? "ig_reels_aggregated_all_plays_count"
+    : "plays";
+  if (insightMap.has(playsKey)) metrics.plays = insightMap.get(playsKey)!;
   if (insightMap.has("reach")) metrics.reach = insightMap.get("reach")!;
   if (insightMap.has("saved")) metrics.saves = insightMap.get("saved")!;
   if (insightMap.has("shares")) metrics.shares = insightMap.get("shares")!;

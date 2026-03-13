@@ -5,7 +5,7 @@ import { toPlatformId, mapMetrics } from "@/lib/ig/mapper";
 const GRAPH_API_BASE = "https://graph.facebook.com/v22.0";
 
 const FEED_INSIGHT_METRICS = "impressions,reach,saved,shares";
-const REEL_INSIGHT_METRICS = "reach,saved,shares,plays";
+const REEL_INSIGHT_METRICS = "ig_reels_aggregated_all_plays_count,reach,saved,shares";
 
 type InsightData = {
   data: Array<{
@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
           platformId === "ig_reel" ? REEL_INSIGHT_METRICS : FEED_INSIGHT_METRICS;
 
         let insightData: InsightData["data"] = [];
+        let insightWarning: string | undefined;
         try {
           const insights = await igFetch<InsightData>(
             `${GRAPH_API_BASE}/${mediaId}/insights?metric=${insightMetrics}`,
@@ -73,9 +74,8 @@ export async function POST(req: NextRequest) {
           );
           insightData = insights.data ?? [];
         } catch (e) {
-          if (e instanceof IgApiException) {
-            console.warn(`Insights unavailable for ${mediaId}: ${e.igMessage}`);
-          }
+          insightWarning = e instanceof IgApiException ? e.igMessage : "Unknown insights error";
+          console.warn(`Insights unavailable for ${mediaId}: ${insightWarning}`);
         }
 
         // Step 3: Map to PlatformConfig metric keys
