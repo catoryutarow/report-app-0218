@@ -69,9 +69,9 @@ export function mapReelMetrics(
   if (insightMap.has("shares")) metrics.shares = insightMap.get("shares")!;
 
   // Watch time metrics (v22.0)
-  // ig_reels_video_view_total_time returns ms → maps to total_watch_time_ms
+  // ig_reels_video_view_total_time returns ms → convert to seconds
   if (insightMap.has("ig_reels_video_view_total_time")) {
-    metrics.total_watch_time_ms = insightMap.get("ig_reels_video_view_total_time")!;
+    metrics.total_watch_time_sec = insightMap.get("ig_reels_video_view_total_time")! / 1000;
   }
   // ig_reels_avg_watch_time returns ms → store raw for debugging/display
   if (insightMap.has("ig_reels_avg_watch_time")) {

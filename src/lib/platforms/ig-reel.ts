@@ -20,9 +20,9 @@ export const igReelConfig: PlatformConfig = {
       csvAliases: ["リーチ", "reach", "Reach", "リーチしたアカウント数"],
     },
     {
-      key: "total_watch_time_ms",
-      label: "合計再生時間(ms)",
-      type: "integer",
+      key: "total_watch_time_sec",
+      label: "合計再生時間(秒)",
+      type: "float",
       required: false,
       csvAliases: ["合計再生時間", "total_watch_time", "Total watch time"],
       description: "平均視聴時間の算出に必須。Mosseri公認: watch timeはリール推薦の最重要シグナル。API経由で自動取得。",
@@ -81,11 +81,11 @@ export const igReelConfig: PlatformConfig = {
       label: "平均視聴時間(秒)",
       format: "duration",
       calculate: (m) =>
-        m.plays > 0 && m.total_watch_time_ms != null
-          ? m.total_watch_time_ms / 1000 / m.plays
+        m.plays > 0 && m.total_watch_time_sec != null
+          ? m.total_watch_time_sec / m.plays
           : null,
       weightedParts: (m) => ({
-        numerator: (m.total_watch_time_ms ?? 0) / 1000,
+        numerator: m.total_watch_time_sec ?? 0,
         denominator: m.plays ?? 0,
       }),
       higherIsBetter: true,
