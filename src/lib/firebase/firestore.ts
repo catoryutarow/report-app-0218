@@ -224,6 +224,35 @@ export async function updateSnapshot(
   );
 }
 
+export async function updateSnapshotPost(
+  accountId: string,
+  snapshotId: string,
+  postId: string,
+  data: Partial<Post>
+) {
+  return updateDoc(
+    doc(db(), "accounts", accountId, "snapshots", snapshotId, "posts", postId),
+    data as DocumentData
+  );
+}
+
+export async function recalcSnapshotTotals(
+  accountId: string,
+  snapshotId: string
+) {
+  const allPosts = await getSnapshotPosts(accountId, snapshotId);
+  const totals: Record<string, number> = {};
+  for (const p of allPosts) {
+    for (const [key, val] of Object.entries(p.metrics)) {
+      totals[key] = (totals[key] ?? 0) + val;
+    }
+  }
+  await updateSnapshot(accountId, snapshotId, {
+    postCount: allPosts.length,
+    totals,
+  });
+}
+
 export async function addPostsToSnapshot(
   accountId: string,
   snapshotId: string,

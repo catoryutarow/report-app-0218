@@ -18,7 +18,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowUpDown, Pencil } from "lucide-react";
 import type { Post } from "@/lib/firebase/firestore";
 import type { PlatformConfig } from "@/lib/platforms/types";
 import { formatKpiValue } from "@/lib/kpi/calculator";
@@ -27,9 +28,10 @@ import { getThumbnailUrl } from "@/lib/platforms/utils";
 type Props = {
   posts: Post[];
   config: PlatformConfig;
+  onEditPost?: (post: Post) => void;
 };
 
-export function PostsTable({ posts, config }: Props) {
+export function PostsTable({ posts, config, onEditPost }: Props) {
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const columns = useMemo<ColumnDef<Post>[]>(() => {
@@ -180,8 +182,25 @@ export function PostsTable({ posts, config }: Props) {
       },
     });
 
+    if (onEditPost) {
+      base.push({
+        id: "edit",
+        header: "",
+        cell: ({ row }) => (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => onEditPost(row.original)}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        ),
+      });
+    }
+
     return base;
-  }, [config]);
+  }, [config, onEditPost]);
 
   const table = useReactTable({
     data: posts,

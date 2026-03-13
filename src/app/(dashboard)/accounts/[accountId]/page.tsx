@@ -26,6 +26,7 @@ import { TopPostsPanel } from "@/components/kpi/TopPostsPanel";
 import { PostsTable } from "@/components/posts/PostsTable";
 import { CsvUploadDialog } from "@/components/posts/CsvUploadDialog";
 import { QuickEntryDialog } from "@/components/posts/QuickEntryDialog";
+import { PostEditDialog } from "@/components/posts/PostEditDialog";
 import { PlatformGuide } from "@/components/accounts/PlatformGuide";
 import { ChannelSummaryDialog } from "@/components/kpi/ChannelSummaryDialog";
 import { IgImportDialog } from "@/components/ig/IgImportDialog";
@@ -55,6 +56,7 @@ export default function AccountDetailPage() {
   const [channelSummaryOpen, setChannelSummaryOpen] = useState(false);
   const [igImportOpen, setIgImportOpen] = useState(false);
   const [igConnected, setIgConnected] = useState(false);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
 
   // Snapshot state
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
@@ -387,7 +389,11 @@ export default function AccountDetailPage() {
             </TabsContent>
 
             <TabsContent value="posts" className="mt-4">
-              <PostsTable posts={currentPosts} config={config} />
+              <PostsTable
+                posts={currentPosts}
+                config={config}
+                onEditPost={(post) => setEditingPost(post)}
+              />
             </TabsContent>
 
             <TabsContent value="trend" className="mt-4">
@@ -469,6 +475,22 @@ export default function AccountDetailPage() {
           onComplete={() => {
             fetchData();
             setIgImportOpen(false);
+          }}
+        />
+      )}
+
+      {/* Post Edit Dialog */}
+      {editingPost && selectedSnapshotId && (
+        <PostEditDialog
+          open={!!editingPost}
+          onOpenChange={(o) => { if (!o) setEditingPost(null); }}
+          accountId={accountId}
+          snapshotId={selectedSnapshotId}
+          post={editingPost}
+          config={config}
+          onComplete={() => {
+            setEditingPost(null);
+            fetchData();
           }}
         />
       )}
