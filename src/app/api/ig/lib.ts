@@ -1,12 +1,20 @@
-import { initializeApp, getApps, type App } from "firebase-admin/app";
+import { initializeApp, cert, getApps, type App } from "firebase-admin/app";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
 
 // --- Firebase Admin (server-side only) ---
 
 function getAdminApp(): App {
   if (getApps().length === 0) {
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
     return initializeApp({
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      credential: privateKey
+        ? cert({
+            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
+            privateKey,
+          })
+        : undefined,
     });
   }
   return getApps()[0];
