@@ -85,14 +85,6 @@ export function IgImportDialog({
         return;
       }
       setMedia(data.media ?? []);
-      const autoSelect = new Set<string>();
-      for (const m of data.media ?? []) {
-        const pid = toPlatformId(m.mediaType, m.mediaProductType);
-        if (pid === accountPlatform && !existingPermalinks.has(m.permalink)) {
-          autoSelect.add(m.igMediaId);
-        }
-      }
-      setSelected(autoSelect);
     } catch {
       toast.error("投稿一覧の取得に失敗しました");
     } finally {
@@ -124,18 +116,17 @@ export function IgImportDialog({
     return true;
   });
 
-  // When date filter changes, keep only visible items selected
+  // Auto-select visible, non-duplicate items whenever the filtered list changes
   useEffect(() => {
-    const visibleIds = new Set(filteredMedia.map((m) => m.igMediaId));
-    setSelected((prev) => {
-      const next = new Set<string>();
-      for (const id of prev) {
-        if (visibleIds.has(id)) next.add(id);
+    const next = new Set<string>();
+    for (const m of filteredMedia) {
+      if (!existingPermalinks.has(m.permalink)) {
+        next.add(m.igMediaId);
       }
-      return next;
-    });
+    }
+    setSelected(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, media]);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
