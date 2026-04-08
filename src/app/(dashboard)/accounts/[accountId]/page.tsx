@@ -3,10 +3,16 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Upload, ArrowLeft, PenLine, BarChart3, Link2, Download, Presentation, CalendarSearch, GitCompareArrows } from "lucide-react";
+import { Upload, ArrowLeft, PenLine, Link2, Download, Presentation, CalendarSearch, GitCompareArrows, Plus, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Timestamp } from "firebase/firestore";
 import {
   getAccount,
@@ -496,73 +502,97 @@ export default function AccountDetailPage() {
           </Badge>
         </div>
         <div className="flex gap-2">
-          {CSV_PRIMARY_PLATFORMS.has(account.platform) ? (
+          {/* IG main actions */}
+          {IG_API_PLATFORMS.has(account.platform) && igConnected && (
             <>
-              <Button size="sm" onClick={() => setCsvDialogOpen(true)}>
-                <Upload className="mr-1 h-4 w-4" />
-                CSVアップロード
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setQuickEntryOpen(true)}>
-                <PenLine className="mr-1 h-4 w-4" />
-                手動入力
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button size="sm" onClick={() => setQuickEntryOpen(true)}>
-                <PenLine className="mr-1 h-4 w-4" />
-                投稿を入力
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setCsvDialogOpen(true)}>
-                <Upload className="mr-1 h-4 w-4" />
-                CSV
-              </Button>
-              {IG_API_PLATFORMS.has(account.platform) && (
-                igConnected ? (
-                  <>
-                    <Button size="sm" variant="outline" onClick={() => setIgImportOpen(true)}>
-                      <Link2 className="mr-1 h-4 w-4" />
-                      APIから取得
-                    </Button>
-                    {selectedSnapshot && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleFetchMonthlySummary}
-                        disabled={fetchingSummary}
-                      >
-                        {fetchingSummary ? (
-                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1" />
-                        ) : (
-                          <CalendarSearch className="mr-1 h-4 w-4" />
-                        )}
-                        月サマリー取得
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleWeeklyComparison}
-                      disabled={fetchingWeekly}
-                    >
-                      {fetchingWeekly ? (
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1" />
-                      ) : (
-                        <GitCompareArrows className="mr-1 h-4 w-4" />
-                      )}
-                      週次比較
-                    </Button>
-                  </>
+              <Button
+                size="sm"
+                onClick={handleWeeklyComparison}
+                disabled={fetchingWeekly}
+              >
+                {fetchingWeekly ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1" />
                 ) : (
-                  <Link href="/settings">
-                    <Button size="sm" variant="outline">
-                      <Link2 className="mr-1 h-4 w-4" />
-                      API連携を設定
-                    </Button>
-                  </Link>
-                )
+                  <GitCompareArrows className="mr-1 h-4 w-4" />
+                )}
+                週次比較
+              </Button>
+              {selectedSnapshot && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleFetchMonthlySummary}
+                  disabled={fetchingSummary}
+                >
+                  {fetchingSummary ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1" />
+                  ) : (
+                    <CalendarSearch className="mr-1 h-4 w-4" />
+                  )}
+                  月サマリー取得
+                </Button>
               )}
             </>
+          )}
+
+          {/* Data add dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline">
+                <Plus className="mr-1 h-4 w-4" />
+                追加
+                <ChevronDown className="ml-1 h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setQuickEntryOpen(true)}>
+                <PenLine className="mr-2 h-4 w-4" />
+                {CSV_PRIMARY_PLATFORMS.has(account.platform) ? "手動入力" : "投稿を入力"}
+              </DropdownMenuItem>
+              {selectedSnapshot && (
+                <DropdownMenuItem onClick={() => setAddToSnapshotOpen(true)}>
+                  <PenLine className="mr-2 h-4 w-4" />
+                  投稿を追加
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => setCsvDialogOpen(true)}>
+                <Upload className="mr-2 h-4 w-4" />
+                CSVアップロード
+              </DropdownMenuItem>
+              {IG_API_PLATFORMS.has(account.platform) && igConnected && (
+                <DropdownMenuItem onClick={() => setIgImportOpen(true)}>
+                  <Link2 className="mr-2 h-4 w-4" />
+                  APIから取得
+                </DropdownMenuItem>
+              )}
+              {IG_API_PLATFORMS.has(account.platform) && !igConnected && (
+                <DropdownMenuItem asChild>
+                  <Link href="/settings">
+                    <Link2 className="mr-2 h-4 w-4" />
+                    API連携を設定
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              {selectedSnapshot && !CSV_PRIMARY_PLATFORMS.has(account.platform) && (
+                <DropdownMenuItem onClick={() => setChannelSummaryOpen(true)}>
+                  <CalendarSearch className="mr-2 h-4 w-4" />
+                  サマリー手動入力
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Export dropdown */}
+          {selectedSnapshot && (
+            <ExportDropdown
+              snapshot={selectedSnapshot}
+              posts={currentPosts}
+              config={config}
+              targets={account.targets}
+              account={account}
+              compareSnapshot={compareSnapshot}
+              comparePosts={comparePosts}
+            />
           )}
         </div>
       </div>
@@ -578,27 +608,7 @@ export default function AccountDetailPage() {
             compareId={compareSnapshotId}
             onCompareSelect={handleSelectCompare}
           />
-          {selectedSnapshot && (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setAddToSnapshotOpen(true)}
-              >
-                <PenLine className="mr-1 h-4 w-4" />
-                投稿を追加
-              </Button>
-              <ExportButtons
-                snapshot={selectedSnapshot}
-                posts={currentPosts}
-                config={config}
-                targets={account.targets}
-                account={account}
-                compareSnapshot={compareSnapshot}
-                comparePosts={comparePosts}
-              />
-            </>
-          )}
+          {/* Export and add actions moved to header dropdowns */}
         </div>
       ) : (
         <div className="border-2 border-dashed rounded-lg p-8 text-center text-muted-foreground">
@@ -633,30 +643,7 @@ export default function AccountDetailPage() {
         </div>
       )}
 
-      {/* Channel Summary prompt for non-YouTube platforms */}
-      {selectedSnapshot && !CSV_PRIMARY_PLATFORMS.has(account.platform) && (
-        <div className="flex items-center gap-3 bg-muted/50 rounded-lg px-4 py-3">
-          <div className="flex-1 min-w-0">
-            {selectedSnapshot.channelSummary ? (
-              <p className="text-sm text-muted-foreground">
-                チャンネルサマリー入力済み
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                アナリティクスの概要画面から<strong>チャンネル全体の数値</strong>を入力すると、期間俯瞰のKPIとして活用できます
-              </p>
-            )}
-          </div>
-          <Button
-            size="sm"
-            variant={selectedSnapshot.channelSummary ? "outline" : "default"}
-            onClick={() => setChannelSummaryOpen(true)}
-          >
-            <BarChart3 className="mr-1 h-4 w-4" />
-            {selectedSnapshot.channelSummary ? "サマリー編集" : "サマリー入力"}
-          </Button>
-        </div>
-      )}
+      {/* Channel summary bar removed — use "月サマリー取得" button or manual entry via サマリー編集 in dropdown */}
 
       {/* Dashboard content (only when snapshot selected) */}
       {selectedSnapshot && currentPosts.length > 0 && (
@@ -808,8 +795,8 @@ export default function AccountDetailPage() {
   );
 }
 
-/** Export CSV / JSON / Slide JSON buttons */
-function ExportButtons({
+/** Export dropdown menu */
+function ExportDropdown({
   snapshot,
   posts,
   config,
@@ -855,19 +842,28 @@ function ExportButtons({
   };
 
   return (
-    <div className="flex gap-1">
-      <Button size="sm" variant="outline" onClick={handleCsv}>
-        <Download className="mr-1 h-4 w-4" />
-        CSV
-      </Button>
-      <Button size="sm" variant="outline" onClick={handleJson}>
-        <Download className="mr-1 h-4 w-4" />
-        JSON
-      </Button>
-      <Button size="sm" variant="outline" onClick={handleSlideJson}>
-        <Presentation className="mr-1 h-4 w-4" />
-        スライド
-      </Button>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" variant="outline">
+          <Download className="mr-1 h-4 w-4" />
+          出力
+          <ChevronDown className="ml-1 h-3 w-3" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={handleCsv}>
+          <Download className="mr-2 h-4 w-4" />
+          CSV
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleJson}>
+          <Download className="mr-2 h-4 w-4" />
+          JSON
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleSlideJson}>
+          <Presentation className="mr-2 h-4 w-4" />
+          スライド
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
