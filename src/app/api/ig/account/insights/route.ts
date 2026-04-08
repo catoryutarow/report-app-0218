@@ -32,12 +32,20 @@ export async function POST(req: NextRequest) {
     const since = Math.floor(new Date(periodStart).getTime() / 1000);
     const until = Math.floor(new Date(periodEnd).getTime() / 1000);
 
-    const data = await igFetch<AccountInsightsResponse>(
-      `${GRAPH_API_BASE}/${stored.igUserId}/insights?metric=reach,follower_count,likes,comments,shares,saves,total_interactions&metric_type=total_value&period=day&since=${since}&until=${until}`,
-      stored.accessToken
-    );
+    // Two requests needed: follower_count is incompatible with metric_type=total_value
+    const [metricsData, followerData] = await Promise.all([
+      igFetch<AccountInsightsResponse>(
+        `${GRAPH_API_BASE}/${stored.igUserId}/insights?metric=reach,likes,comments,shares,saves,total_interactions&metric_type=total_value&period=day&since=${since}&until=${until}`,
+        stored.accessToken
+      ),
+      igFetch<AccountInsightsResponse>(
+        `${GRAPH_API_BASE}/${stored.igUserId}/insights?metric=follower_count&period=day&since=${since}&until=${until}`,
+        stored.accessToken
+      ).catch(() => ({ data: [] })),
+    ]);
 
-    const summary = mapAccountInsights(data.data ?? []);
+    const allInsights = [...(metricsData.data ?? []), ...(followerData.data ?? [])];
+    const summary = mapAccountInsights(allInsights);
 
     return Response.json({ summary });
   } catch (error) {
