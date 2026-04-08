@@ -114,11 +114,13 @@ export function mapAccountInsights(
     if (values.length === 0) continue;
 
     switch (metric.name) {
-      case "impressions":
-        summary.impressions = values.reduce((a, b) => a + b, 0);
-        break;
       case "reach":
-        summary.reach = values.reduce((a, b) => a + b, 0);
+      case "likes":
+      case "comments":
+      case "shares":
+      case "saves":
+      case "total_interactions":
+        summary[metric.name] = values.reduce((a, b) => a + b, 0);
         break;
       case "follower_count":
         // Daily snapshots — delta = last - first

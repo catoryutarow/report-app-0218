@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     const until = Math.floor(new Date(periodEnd).getTime() / 1000);
 
     const data = await igFetch<AccountInsightsResponse>(
-      `${GRAPH_API_BASE}/${stored.igUserId}/insights?metric=impressions,reach,follower_count&period=day&since=${since}&until=${until}`,
+      `${GRAPH_API_BASE}/${stored.igUserId}/insights?metric=reach,follower_count,likes,comments,shares,saves,total_interactions&period=day&since=${since}&until=${until}`,
       stored.accessToken
     );
 
