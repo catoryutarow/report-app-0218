@@ -101,7 +101,8 @@ export function mapMetrics(
  */
 type AccountInsightEntry = {
   name: string;
-  values: Array<{ value: number; end_time: string }>;
+  values?: Array<{ value: number; end_time: string }>;
+  total_value?: { value: number };
 };
 
 export function mapAccountInsights(
@@ -110,8 +111,19 @@ export function mapAccountInsights(
   const summary: Record<string, number> = {};
 
   for (const metric of insights) {
+    // metric_type=total_value returns { total_value: { value: N } }
+    if (metric.total_value != null) {
+      if (metric.name === "follower_count") {
+        // total_value for follower_count is absolute, not delta — skip
+      } else {
+        summary[metric.name] = metric.total_value.value;
+      }
+      continue;
+    }
+
+    // period=day returns { values: [{ value, end_time }] }
+    if (!metric.values || !Array.isArray(metric.values) || metric.values.length === 0) continue;
     const values = metric.values.map((v) => v.value);
-    if (values.length === 0) continue;
 
     switch (metric.name) {
       case "reach":
