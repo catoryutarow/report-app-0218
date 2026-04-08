@@ -3,15 +3,18 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Upload, ArrowLeft, PenLine, BarChart3, Link2, Download } from "lucide-react";
+import { Upload, ArrowLeft, PenLine, BarChart3, Link2, Download, Presentation, CalendarSearch, GitCompareArrows } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Timestamp } from "firebase/firestore";
 import {
   getAccount,
   getSnapshots,
   getSnapshotPosts,
   deleteSnapshot,
+  updateSnapshot,
+  createSnapshotWithPosts,
   updateSnapshotPost,
   type Account,
   type Post,
@@ -32,12 +35,15 @@ import { PostEditDialog } from "@/components/posts/PostEditDialog";
 import { PlatformGuide } from "@/components/accounts/PlatformGuide";
 import { ChannelSummaryDialog } from "@/components/kpi/ChannelSummaryDialog";
 import { IgImportDialog } from "@/components/ig/IgImportDialog";
+import { toPlatformId } from "@/lib/ig/mapper";
+import { calculatePostKpis } from "@/lib/kpi/calculator";
 import {
   buildCsvExport,
   buildJsonExport,
   downloadCsv,
   downloadJson,
 } from "@/lib/export/snapshot-export";
+import { buildSlideJson } from "@/lib/export/slide-json";
 import { toast } from "sonner";
 
 /** YouTube platforms use CSV as primary input */
@@ -52,6 +58,24 @@ function filterAggregate(posts: Post[]): Post[] {
   return posts.filter((p) => !SKIP.has(p.title ?? "") && !SKIP.has(p.postKey));
 }
 
+/** Get Monday 00:00 of the week containing the given date */
+function getMonday(d: Date): Date {
+  const day = d.getDay();
+  const diff = d.getDate() - ((day + 6) % 7);
+  const monday = new Date(d);
+  monday.setDate(diff);
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+/** Format a snapshot label like "2026年 3/31〜4/6" */
+function weekLabel(monday: Date): string {
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const y = monday.getFullYear();
+  return `${y}年 ${monday.getMonth() + 1}/${monday.getDate()}〜${sunday.getMonth() + 1}/${sunday.getDate()}`;
+}
+
 export default function AccountDetailPage() {
   const params = useParams();
   const accountId = params.accountId as string;
@@ -64,6 +88,8 @@ export default function AccountDetailPage() {
   const [channelSummaryOpen, setChannelSummaryOpen] = useState(false);
   const [igImportOpen, setIgImportOpen] = useState(false);
   const [igConnected, setIgConnected] = useState(false);
+  const [fetchingSummary, setFetchingSummary] = useState(false);
+  const [fetchingWeekly, setFetchingWeekly] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
 
   // Snapshot state
@@ -224,6 +250,200 @@ export default function AccountDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPosts.length, selectedSnapshotId, igConnected]);
 
+  const handleFetchMonthlySummary = async () => {
+    if (!selectedSnapshot || !selectedSnapshotId) return;
+    setFetchingSummary(true);
+    try {
+      const res = await fetch("/api/ig/account/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId,
+          periodStart: selectedSnapshot.periodStart.toDate().toISOString(),
+          periodEnd: selectedSnapshot.periodEnd.toDate().toISOString(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "サマリー取得に失敗しました");
+        return;
+      }
+      await updateSnapshot(accountId, selectedSnapshotId, {
+        channelSummary: data.summary,
+      });
+      setSnapshots((prev) =>
+        prev.map((s) =>
+          s.id === selectedSnapshotId ? { ...s, channelSummary: data.summary } : s
+        )
+      );
+      toast.success("月サマリーを取得しました");
+    } catch {
+      toast.error("サマリー取得に失敗しました");
+    } finally {
+      setFetchingSummary(false);
+    }
+  };
+
+  const handleWeeklyComparison = async () => {
+    if (!account || !igConnected) return;
+    setFetchingWeekly(true);
+    try {
+      const today = new Date();
+      const thisMonday = getMonday(today);
+      const lastMonday = new Date(thisMonday);
+      lastMonday.setDate(thisMonday.getDate() - 7);
+
+      const sinceDate = new Date(lastMonday);
+      sinceDate.setDate(sinceDate.getDate() - 1);
+      toast.info("投稿を取得中...");
+
+      const mediaRes = await fetch(
+        `/api/ig/media?limit=50&accountId=${accountId}&since=${sinceDate.toISOString()}`
+      );
+      const mediaData = await mediaRes.json();
+      if (!mediaRes.ok) {
+        toast.error(mediaData.error ?? "投稿取得に失敗しました");
+        return;
+      }
+
+      const allMedia: Array<{
+        igMediaId: string;
+        caption: string;
+        mediaType: string;
+        mediaProductType: string;
+        timestamp: string;
+        permalink: string;
+        thumbnailUrl: string | null;
+      }> = mediaData.media ?? [];
+
+      const thisSunday = new Date(thisMonday);
+      thisSunday.setDate(thisMonday.getDate() + 6);
+      thisSunday.setHours(23, 59, 59, 999);
+      const lastSunday = new Date(lastMonday);
+      lastSunday.setDate(lastMonday.getDate() + 6);
+      lastSunday.setHours(23, 59, 59, 999);
+
+      const thisWeekMedia = allMedia.filter((m) => {
+        const d = new Date(m.timestamp);
+        return (
+          toPlatformId(m.mediaType, m.mediaProductType) === account.platform &&
+          d >= thisMonday && d <= thisSunday
+        );
+      });
+      const lastWeekMedia = allMedia.filter((m) => {
+        const d = new Date(m.timestamp);
+        return (
+          toPlatformId(m.mediaType, m.mediaProductType) === account.platform &&
+          d >= lastMonday && d <= lastSunday
+        );
+      });
+
+      const thisLabel = weekLabel(thisMonday);
+      const lastLabel = weekLabel(lastMonday);
+      const existingThis = snapshots.find((s) => s.label === thisLabel);
+      const existingLast = snapshots.find((s) => s.label === lastLabel);
+
+      const cfg = getPlatformConfig(account.platform);
+
+      async function fetchInsightsAndCreateSnapshot(
+        media: typeof allMedia,
+        monday: Date,
+        label: string
+      ): Promise<string> {
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+
+        if (media.length === 0) {
+          return createSnapshotWithPosts(
+            accountId,
+            {
+              periodStart: Timestamp.fromDate(monday),
+              periodEnd: Timestamp.fromDate(sunday),
+              importedAt: Timestamp.now(),
+              label,
+              postCount: 0,
+              totals: {},
+            },
+            []
+          );
+        }
+
+        toast.info(`${label} のinsightsを取得中...`);
+        const ids = media.map((m) => m.igMediaId);
+        const insightsRes = await fetch("/api/ig/media/insights", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mediaIds: ids, accountId }),
+        });
+        const insightsData = await insightsRes.json();
+        if (!insightsRes.ok) {
+          throw new Error(insightsData.error ?? "Insights取得に失敗");
+        }
+
+        const results: Array<{
+          igMediaId: string;
+          metrics: Record<string, number>;
+          caption: string;
+          permalink: string;
+          timestamp: string;
+          thumbnailUrl: string | null;
+        }> = insightsData.results ?? [];
+
+        const posts: Omit<Post, "id">[] = results.map((r) => ({
+          postKey: r.igMediaId,
+          title: r.caption.slice(0, 60) || undefined,
+          publishedAt: Timestamp.fromDate(new Date(r.timestamp)),
+          capturedAt: Timestamp.now(),
+          permalink: r.permalink,
+          thumbnailUrl: r.thumbnailUrl ?? undefined,
+          tags: {},
+          metrics: r.metrics,
+          calculatedKpis: calculatePostKpis(cfg.kpis, r.metrics),
+          source: "api" as const,
+        }));
+
+        const totals: Record<string, number> = {};
+        for (const p of posts) {
+          for (const [key, val] of Object.entries(p.metrics)) {
+            totals[key] = (totals[key] ?? 0) + val;
+          }
+        }
+
+        return createSnapshotWithPosts(
+          accountId,
+          {
+            periodStart: Timestamp.fromDate(monday),
+            periodEnd: Timestamp.fromDate(sunday),
+            importedAt: Timestamp.now(),
+            label,
+            postCount: posts.length,
+            totals,
+          },
+          posts
+        );
+      }
+
+      const lastId = existingLast?.id ??
+        await fetchInsightsAndCreateSnapshot(lastWeekMedia, lastMonday, lastLabel);
+      const thisId = existingThis?.id ??
+        await fetchInsightsAndCreateSnapshot(thisWeekMedia, thisMonday, thisLabel);
+
+      await fetchData();
+      setSelectedSnapshotId(thisId);
+      const thisPosts = await getSnapshotPosts(accountId, thisId);
+      setCurrentPosts(filterAggregate(thisPosts));
+      setCompareSnapshotId(lastId);
+      const lastPosts = await getSnapshotPosts(accountId, lastId);
+      setComparePosts(filterAggregate(lastPosts));
+
+      toast.success("週次比較を生成しました");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "週次比較の生成に失敗しました");
+    } finally {
+      setFetchingWeekly(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto max-w-6xl px-4 py-8">
@@ -299,10 +519,40 @@ export default function AccountDetailPage() {
               </Button>
               {IG_API_PLATFORMS.has(account.platform) && (
                 igConnected ? (
-                  <Button size="sm" variant="outline" onClick={() => setIgImportOpen(true)}>
-                    <Link2 className="mr-1 h-4 w-4" />
-                    APIから取得
-                  </Button>
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => setIgImportOpen(true)}>
+                      <Link2 className="mr-1 h-4 w-4" />
+                      APIから取得
+                    </Button>
+                    {selectedSnapshot && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleFetchMonthlySummary}
+                        disabled={fetchingSummary}
+                      >
+                        {fetchingSummary ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1" />
+                        ) : (
+                          <CalendarSearch className="mr-1 h-4 w-4" />
+                        )}
+                        月サマリー取得
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleWeeklyComparison}
+                      disabled={fetchingWeekly}
+                    >
+                      {fetchingWeekly ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1" />
+                      ) : (
+                        <GitCompareArrows className="mr-1 h-4 w-4" />
+                      )}
+                      週次比較
+                    </Button>
+                  </>
                 ) : (
                   <Link href="/settings">
                     <Button size="sm" variant="outline">
@@ -343,6 +593,9 @@ export default function AccountDetailPage() {
                 posts={currentPosts}
                 config={config}
                 targets={account.targets}
+                account={account}
+                compareSnapshot={compareSnapshot}
+                comparePosts={comparePosts}
               />
             </>
           )}
@@ -555,17 +808,23 @@ export default function AccountDetailPage() {
   );
 }
 
-/** Export CSV / JSON buttons */
+/** Export CSV / JSON / Slide JSON buttons */
 function ExportButtons({
   snapshot,
   posts,
   config,
   targets,
+  account,
+  compareSnapshot,
+  comparePosts,
 }: {
   snapshot: Snapshot;
   posts: Post[];
   config: PlatformConfig;
   targets: Record<string, number>;
+  account: Account;
+  compareSnapshot?: Snapshot | null;
+  comparePosts?: Post[];
 }) {
   const base = `${config.id}_${snapshot.label.replace(/[\s/]/g, "_")}`;
 
@@ -581,6 +840,20 @@ function ExportButtons({
     toast.success("JSONをダウンロードしました");
   };
 
+  const handleSlideJson = () => {
+    const slides = buildSlideJson({
+      account,
+      config,
+      targets,
+      currentSnapshot: snapshot,
+      currentPosts: posts,
+      compareSnapshot,
+      comparePosts,
+    });
+    downloadJson(slides, `${base}_slides.json`);
+    toast.success("スライドJSONをダウンロードしました");
+  };
+
   return (
     <div className="flex gap-1">
       <Button size="sm" variant="outline" onClick={handleCsv}>
@@ -590,6 +863,10 @@ function ExportButtons({
       <Button size="sm" variant="outline" onClick={handleJson}>
         <Download className="mr-1 h-4 w-4" />
         JSON
+      </Button>
+      <Button size="sm" variant="outline" onClick={handleSlideJson}>
+        <Presentation className="mr-1 h-4 w-4" />
+        スライド
       </Button>
     </div>
   );

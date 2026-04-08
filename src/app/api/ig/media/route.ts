@@ -43,9 +43,9 @@ export async function GET(req: NextRequest) {
     let reachedBoundary = false;
 
     while (url && pages < MAX_PAGES && !reachedBoundary) {
-      const data = await igFetch<MediaPage>(url, stored.accessToken);
+      const page: MediaPage = await igFetch<MediaPage>(url, stored.accessToken);
 
-      for (const m of data.data ?? []) {
+      for (const m of page.data ?? []) {
         if (sinceDate && new Date(m.timestamp) < sinceDate) {
           reachedBoundary = true;
           break;
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
         allMedia.push(m);
       }
 
-      url = data.paging?.next ?? null;
+      url = page.paging?.next ?? null;
       pages++;
     }
 
