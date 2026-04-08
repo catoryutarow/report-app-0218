@@ -94,3 +94,38 @@ export function mapMetrics(
     ? mapReelMetrics(fields, insights)
     : mapFeedMetrics(fields, insights);
 }
+
+/**
+ * IG Account Insights API returns daily values for each metric.
+ * Sum daily values for impressions/reach, compute follower delta from follower_count.
+ */
+type AccountInsightEntry = {
+  name: string;
+  values: Array<{ value: number; end_time: string }>;
+};
+
+export function mapAccountInsights(
+  insights: AccountInsightEntry[]
+): Record<string, number> {
+  const summary: Record<string, number> = {};
+
+  for (const metric of insights) {
+    const values = metric.values.map((v) => v.value);
+    if (values.length === 0) continue;
+
+    switch (metric.name) {
+      case "impressions":
+        summary.impressions = values.reduce((a, b) => a + b, 0);
+        break;
+      case "reach":
+        summary.reach = values.reduce((a, b) => a + b, 0);
+        break;
+      case "follower_count":
+        // Daily snapshots — delta = last - first
+        summary.follows = values[values.length - 1] - values[0];
+        break;
+    }
+  }
+
+  return summary;
+}
