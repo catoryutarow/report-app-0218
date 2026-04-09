@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Upload, ArrowLeft, PenLine, Link2, Download, Presentation, CalendarSearch, GitCompareArrows, Plus, ChevronDown } from "lucide-react";
+import { Upload, ArrowLeft, PenLine, Link2, Download, Presentation, CalendarSearch, GitCompareArrows, Plus, ChevronDown, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -577,6 +577,12 @@ export default function AccountDetailPage() {
                   取得
                 </Button>
               </div>
+              <Link href={`/accounts/${accountId}/report`}>
+                <Button size="sm" variant="outline">
+                  <FileText className="mr-1 h-4 w-4" />
+                  レポート作成
+                </Button>
+              </Link>
             </>
           )}
 
