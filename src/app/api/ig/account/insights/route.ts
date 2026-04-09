@@ -37,7 +37,12 @@ export async function POST(req: NextRequest) {
       stored.accessToken
     );
 
+    // Debug: log raw response for follows_and_unfollows
+    const followsMetric = (data.data ?? []).find((d) => d.name === "follows_and_unfollows");
+    console.log("follows_and_unfollows raw:", JSON.stringify(followsMetric ?? "not found"));
+
     const summary = mapAccountInsights(data.data ?? []);
+    console.log("mapped summary:", JSON.stringify(summary));
 
     return Response.json({ summary });
   } catch (error) {

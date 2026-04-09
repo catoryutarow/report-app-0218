@@ -102,7 +102,7 @@ export function mapMetrics(
 type AccountInsightEntry = {
   name: string;
   values?: Array<{ value: number; end_time: string }>;
-  total_value?: { value: number };
+  total_value?: { value: number | Record<string, number> };
 };
 
 export function mapAccountInsights(
@@ -112,9 +112,20 @@ export function mapAccountInsights(
 
   for (const metric of insights) {
     // metric_type=total_value returns { total_value: { value: N } }
+    // follows_and_unfollows returns { total_value: { value: { follows: N, unfollows: M } } }
     if (metric.total_value != null) {
-      const key = metric.name === "follows_and_unfollows" ? "follows" : metric.name;
-      summary[key] = metric.total_value.value;
+      const val = metric.total_value.value;
+      if (metric.name === "follows_and_unfollows") {
+        if (typeof val === "object" && val !== null) {
+          const f = (val as Record<string, number>).follows ?? 0;
+          const u = (val as Record<string, number>).unfollows ?? 0;
+          summary.follows = f - u;
+        } else {
+          summary.follows = Number(val) || 0;
+        }
+      } else {
+        summary[metric.name] = typeof val === "number" ? val : 0;
+      }
       continue;
     }
 
