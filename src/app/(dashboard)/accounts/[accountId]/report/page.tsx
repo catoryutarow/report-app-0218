@@ -163,12 +163,13 @@ export default function ReportPageRoute() {
         setPrevPostCount(prevMediaCount);
       }
 
-      // Fetch monthly trend data (past 3 months) live from API
+      // Fetch monthly trend data (past 3 months) live from API + post-level follows
       toast.info("月次推移を取得中...");
       const trendMonths: MonthlySummary[] = [];
       for (let i = 2; i >= 0; i--) {
         const mStart = new Date(endDate.getFullYear(), endDate.getMonth() - i, 1);
         const mEnd = new Date(endDate.getFullYear(), endDate.getMonth() - i + 1, 0);
+        const mLabel = `${mStart.getFullYear()}年 ${mStart.getMonth() + 1}月`;
         try {
           const mRes = await fetch("/api/ig/account/insights", {
             method: "POST",
@@ -177,11 +178,50 @@ export default function ReportPageRoute() {
           });
           const mData = await mRes.json();
           if (mRes.ok && mData.summary) {
+            const metrics: Record<string, number> = mData.summary;
+
+            // Supplement follows from per-post insights
+            try {
+              toast.info(`${mLabel} のフォロー数を取得中...`);
+              const mSince = new Date(mStart);
+              mSince.setDate(mSince.getDate() - 1);
+              const mMediaRes = await fetch(
+                `/api/ig/media?limit=50&accountId=${accountId}&since=${mSince.toISOString()}`
+              );
+              const mMediaData = await mMediaRes.json();
+              if (mMediaRes.ok && mMediaData.media?.length > 0) {
+                const monthMedia = (mMediaData.media as Array<{ igMediaId: string; timestamp: string }>)
+                  .filter((m) => {
+                    const d = new Date(m.timestamp);
+                    return d >= mStart && d <= new Date(mEnd.getTime() + 86400000);
+                  });
+                if (monthMedia.length > 0) {
+                  const mInsRes = await fetch("/api/ig/media/insights", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ mediaIds: monthMedia.map((m) => m.igMediaId), accountId }),
+                  });
+                  const mInsData = await mInsRes.json();
+                  if (mInsRes.ok) {
+                    let totalFollows = 0;
+                    for (const r of mInsData.results ?? []) {
+                      totalFollows += r.metrics?.follows ?? 0;
+                    }
+                    if (totalFollows > 0) {
+                      metrics.follows = totalFollows;
+                    }
+                  }
+                }
+              }
+            } catch {
+              // follows supplement failed — proceed without
+            }
+
             trendMonths.push({
               periodStart: Timestamp.fromDate(mStart),
               periodEnd: Timestamp.fromDate(mEnd),
-              label: `${mStart.getFullYear()}年 ${mStart.getMonth() + 1}月`,
-              metrics: mData.summary,
+              label: mLabel,
+              metrics,
               importedAt: Timestamp.now(),
             });
           }
