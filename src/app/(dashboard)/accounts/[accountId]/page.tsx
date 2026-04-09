@@ -315,8 +315,9 @@ export default function AccountDetailPage() {
       const ms = await getMonthlySummaries(accountId);
       setMonthlySummaries(ms);
       toast.success(`${label} のサマリーを取得しました`);
-    } catch {
-      toast.error("サマリー取得に失敗しました");
+    } catch (e) {
+      console.error("月サマリー取得エラー:", e);
+      toast.error(e instanceof Error ? e.message : "サマリー取得に失敗しました");
     } finally {
       setFetchingSummary(false);
     }
