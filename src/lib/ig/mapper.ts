@@ -42,6 +42,7 @@ export function mapFeedMetrics(
   if (insightMap.has("impressions")) metrics.impressions = insightMap.get("impressions")!;
   if (insightMap.has("saved")) metrics.saves = insightMap.get("saved")!;
   if (insightMap.has("shares")) metrics.shares = insightMap.get("shares")!;
+  if (insightMap.has("follows")) metrics.follows = insightMap.get("follows")!;
 
   if (fields.like_count != null) metrics.likes = fields.like_count;
   if (fields.comments_count != null) metrics.comments = fields.comments_count;
@@ -67,6 +68,7 @@ export function mapReelMetrics(
   if (insightMap.has("reach")) metrics.reach = insightMap.get("reach")!;
   if (insightMap.has("saved")) metrics.saves = insightMap.get("saved")!;
   if (insightMap.has("shares")) metrics.shares = insightMap.get("shares")!;
+  if (insightMap.has("follows")) metrics.follows = insightMap.get("follows")!;
 
   // Watch time metrics (v22.0)
   // ig_reels_video_view_total_time returns ms → convert to seconds
