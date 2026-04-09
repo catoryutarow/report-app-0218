@@ -105,8 +105,33 @@ export default function ReportPageRoute() {
       const prevData = await prevRes.json();
       if (!curRes.ok) { toast.error(curData.error ?? "今期間のデータ取得に失敗"); return; }
 
-      setCurrentMetrics(curData.summary ?? {});
-      setPreviousMetrics(prevRes.ok ? (prevData.summary ?? {}) : {});
+      const curMetrics: Record<string, number> = curData.summary ?? {};
+      const prevMetrics: Record<string, number> = prevRes.ok ? (prevData.summary ?? {}) : {};
+
+      // Get follower delta for current & previous periods (30-day limit)
+      try {
+        const [curFcRes, prevFcRes] = await Promise.all([
+          fetch("/api/ig/account/follower-delta", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ accountId, periodStart: startDate.toISOString(), periodEnd: endDate.toISOString() }),
+          }),
+          fetch("/api/ig/account/follower-delta", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ accountId, periodStart: prevStart.toISOString(), periodEnd: prevEnd.toISOString() }),
+          }),
+        ]);
+        const curFc = await curFcRes.json();
+        const prevFc = await prevFcRes.json();
+        if (curFcRes.ok && curFc.follows != null) curMetrics.follows = curFc.follows;
+        if (prevFcRes.ok && prevFc.follows != null) prevMetrics.follows = prevFc.follows;
+      } catch {
+        // follower delta unavailable
+      }
+
+      setCurrentMetrics(curMetrics);
+      setPreviousMetrics(prevMetrics);
 
       // Fetch posts for current period
       const sinceDate = new Date(startDate);
@@ -163,9 +188,10 @@ export default function ReportPageRoute() {
         setPrevPostCount(prevMediaCount);
       }
 
-      // Fetch monthly trend data (past 3 months) live from API + post-level follows
+      // Fetch monthly trend data (past 3 months) live from API
       toast.info("月次推移を取得中...");
       const trendMonths: MonthlySummary[] = [];
+      const today = new Date();
       for (let i = 2; i >= 0; i--) {
         const mStart = new Date(endDate.getFullYear(), endDate.getMonth() - i, 1);
         const mEnd = new Date(endDate.getFullYear(), endDate.getMonth() - i + 1, 0);
@@ -180,41 +206,22 @@ export default function ReportPageRoute() {
           if (mRes.ok && mData.summary) {
             const metrics: Record<string, number> = mData.summary;
 
-            // Supplement follows from per-post insights
-            try {
-              toast.info(`${mLabel} のフォロー数を取得中...`);
-              const mSince = new Date(mStart);
-              mSince.setDate(mSince.getDate() - 1);
-              const mMediaRes = await fetch(
-                `/api/ig/media?limit=50&accountId=${accountId}&since=${mSince.toISOString()}`
-              );
-              const mMediaData = await mMediaRes.json();
-              if (mMediaRes.ok && mMediaData.media?.length > 0) {
-                const monthMedia = (mMediaData.media as Array<{ igMediaId: string; timestamp: string }>)
-                  .filter((m) => {
-                    const d = new Date(m.timestamp);
-                    return d >= mStart && d <= new Date(mEnd.getTime() + 86400000);
-                  });
-                if (monthMedia.length > 0) {
-                  const mInsRes = await fetch("/api/ig/media/insights", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ mediaIds: monthMedia.map((m) => m.igMediaId), accountId }),
-                  });
-                  const mInsData = await mInsRes.json();
-                  if (mInsRes.ok) {
-                    let totalFollows = 0;
-                    for (const r of mInsData.results ?? []) {
-                      totalFollows += r.metrics?.follows ?? 0;
-                    }
-                    if (totalFollows > 0) {
-                      metrics.follows = totalFollows;
-                    }
-                  }
+            // follower_count only works for last 30 days — try for recent months
+            const daysSinceStart = Math.floor((today.getTime() - mStart.getTime()) / 86400000);
+            if (daysSinceStart <= 30) {
+              try {
+                const fcRes = await fetch("/api/ig/account/follower-delta", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ accountId, periodStart: mStart.toISOString(), periodEnd: mEnd.toISOString() }),
+                });
+                const fcData = await fcRes.json();
+                if (fcRes.ok && fcData.follows != null) {
+                  metrics.follows = fcData.follows;
                 }
+              } catch {
+                // follower delta unavailable
               }
-            } catch {
-              // follows supplement failed — proceed without
             }
 
             trendMonths.push({
