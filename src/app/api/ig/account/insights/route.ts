@@ -33,16 +33,11 @@ export async function POST(req: NextRequest) {
     const until = Math.floor(new Date(periodEnd).getTime() / 1000);
 
     const data = await igFetch<AccountInsightsResponse>(
-      `${GRAPH_API_BASE}/${stored.igUserId}/insights?metric=reach,likes,comments,shares,saves,total_interactions,follows_and_unfollows&metric_type=total_value&period=day&since=${since}&until=${until}`,
+      `${GRAPH_API_BASE}/${stored.igUserId}/insights?metric=reach,likes,comments,shares,saves,total_interactions&metric_type=total_value&period=day&since=${since}&until=${until}`,
       stored.accessToken
     );
 
-    // Debug: log raw response for follows_and_unfollows
-    const followsMetric = (data.data ?? []).find((d) => d.name === "follows_and_unfollows");
-    console.log("follows_and_unfollows raw:", JSON.stringify(followsMetric ?? "not found"));
-
     const summary = mapAccountInsights(data.data ?? []);
-    console.log("mapped summary:", JSON.stringify(summary));
 
     return Response.json({ summary });
   } catch (error) {
