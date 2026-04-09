@@ -88,11 +88,12 @@ export async function POST(req: NextRequest) {
             `${GRAPH_API_BASE}/${mediaId}/insights?metric=follows`,
             stored.accessToken
           );
+          console.log(`follows for ${mediaId}:`, JSON.stringify(followsRes.data));
           if (followsRes.data) {
             insightData.push(...followsRes.data);
           }
-        } catch {
-          // follows metric may not be available for all media types — skip silently
+        } catch (e) {
+          console.warn(`follows failed for ${mediaId}:`, e instanceof Error ? e.message : e);
         }
 
         // Step 3: Map to PlatformConfig metric keys
