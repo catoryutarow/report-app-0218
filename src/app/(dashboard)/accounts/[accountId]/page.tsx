@@ -97,6 +97,11 @@ export default function AccountDetailPage() {
   const [igImportOpen, setIgImportOpen] = useState(false);
   const [igConnected, setIgConnected] = useState(false);
   const [fetchingSummary, setFetchingSummary] = useState(false);
+  const [summaryMonth, setSummaryMonth] = useState(() => {
+    const now = new Date();
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [fetchingWeekly, setFetchingWeekly] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
 
@@ -273,10 +278,11 @@ export default function AccountDetailPage() {
     if (!account) return;
     setFetchingSummary(true);
     try {
-      // Default period: previous month
-      const now = new Date();
-      const periodStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const periodEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      const [yearStr, monthStr] = summaryMonth.split("-");
+      const year = parseInt(yearStr, 10);
+      const month = parseInt(monthStr, 10) - 1; // 0-indexed
+      const periodStart = new Date(year, month, 1);
+      const periodEnd = new Date(year, month + 1, 0); // last day of month
 
       const res = await fetch("/api/ig/account/insights", {
         method: "POST",
@@ -550,19 +556,27 @@ export default function AccountDetailPage() {
                 )}
                 週次比較
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleFetchMonthlySummary}
-                disabled={fetchingSummary}
-              >
-                {fetchingSummary ? (
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1" />
-                ) : (
-                  <CalendarSearch className="mr-1 h-4 w-4" />
-                )}
-                月サマリー取得
-              </Button>
+              <div className="flex items-center gap-1">
+                <input
+                  type="month"
+                  value={summaryMonth}
+                  onChange={(e) => setSummaryMonth(e.target.value)}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleFetchMonthlySummary}
+                  disabled={fetchingSummary}
+                >
+                  {fetchingSummary ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1" />
+                  ) : (
+                    <CalendarSearch className="mr-1 h-4 w-4" />
+                  )}
+                  取得
+                </Button>
+              </div>
             </>
           )}
 
