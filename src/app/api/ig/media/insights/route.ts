@@ -82,6 +82,19 @@ export async function POST(req: NextRequest) {
           console.warn(`Insights unavailable for ${mediaId}: ${msg}`);
         }
 
+        // Step 2b: Get follows separately (not supported in combined request)
+        try {
+          const followsRes = await igFetch<InsightData>(
+            `${GRAPH_API_BASE}/${mediaId}/insights?metric=follows`,
+            stored.accessToken
+          );
+          if (followsRes.data) {
+            insightData.push(...followsRes.data);
+          }
+        } catch {
+          // follows metric may not be available for all media types — skip silently
+        }
+
         // Step 3: Map to PlatformConfig metric keys
         const metrics = mapMetrics(
           platformId,

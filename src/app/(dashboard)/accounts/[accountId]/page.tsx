@@ -299,13 +299,52 @@ export default function AccountDetailPage() {
         return;
       }
 
+      const summary: Record<string, number> = data.summary ?? {};
+
+      // Supplement follows from per-post insights (Account Insights can't provide it)
+      try {
+        const sinceDate = new Date(periodStart);
+        sinceDate.setDate(sinceDate.getDate() - 1);
+        const mediaRes = await fetch(
+          `/api/ig/media?limit=50&accountId=${accountId}&since=${sinceDate.toISOString()}`
+        );
+        const mediaData = await mediaRes.json();
+        if (mediaRes.ok && mediaData.media?.length > 0) {
+          const periodMedia = (mediaData.media as Array<{ igMediaId: string; timestamp: string }>)
+            .filter((m) => {
+              const d = new Date(m.timestamp);
+              return d >= periodStart && d <= new Date(periodEnd.getTime() + 86400000);
+            });
+          if (periodMedia.length > 0) {
+            toast.info("投稿からフォロー数を取得中...");
+            const insightsRes = await fetch("/api/ig/media/insights", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ mediaIds: periodMedia.map((m) => m.igMediaId), accountId }),
+            });
+            const insightsData = await insightsRes.json();
+            if (insightsRes.ok) {
+              let totalFollows = 0;
+              for (const r of insightsData.results ?? []) {
+                totalFollows += r.metrics?.follows ?? 0;
+              }
+              if (totalFollows > 0) {
+                summary.follows = totalFollows;
+              }
+            }
+          }
+        }
+      } catch {
+        // follows supplement failed — proceed without
+      }
+
       const label = `${periodStart.getFullYear()}年 ${periodStart.getMonth() + 1}月`;
 
       // Update if same label exists, otherwise create
       const existing = monthlySummaries.find((s) => s.label === label);
       if (existing?.id) {
         await updateMonthlySummary(accountId, existing.id, {
-          metrics: data.summary,
+          metrics: summary,
           importedAt: Timestamp.now(),
         });
       } else {
@@ -313,7 +352,7 @@ export default function AccountDetailPage() {
           periodStart: Timestamp.fromDate(periodStart),
           periodEnd: Timestamp.fromDate(periodEnd),
           label,
-          metrics: data.summary,
+          metrics: summary,
           importedAt: Timestamp.now(),
         });
       }
