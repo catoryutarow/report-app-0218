@@ -41,11 +41,20 @@ export async function POST(req: NextRequest) {
       igFetch<AccountInsightsResponse>(
         `${GRAPH_API_BASE}/${stored.igUserId}/insights?metric=follower_count&period=day&since=${since}&until=${until}`,
         stored.accessToken
-      ).catch(() => ({ data: [] })),
+      ).catch((e) => {
+        console.warn("follower_count fetch failed:", e instanceof Error ? e.message : e);
+        return { data: [] as AccountInsightsResponse["data"] };
+      }),
     ]);
 
     const allInsights = [...(metricsData.data ?? []), ...(followerData.data ?? [])];
+
+    // Debug: log raw follower data
+    const followerMetric = (followerData.data ?? []).find((d) => d.name === "follower_count");
+    console.log("follower_count raw:", JSON.stringify(followerMetric ?? "not found"));
+
     const summary = mapAccountInsights(allInsights);
+    console.log("mapped summary:", JSON.stringify(summary));
 
     return Response.json({ summary });
   } catch (error) {
