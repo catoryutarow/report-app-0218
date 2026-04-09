@@ -39,7 +39,19 @@ export async function POST(req: NextRequest) {
 
     const summary = mapAccountInsights(data.data ?? []);
 
-    return Response.json({ summary });
+    // Get current follower count
+    let followersCount: number | null = null;
+    try {
+      const profile = await igFetch<{ followers_count?: number }>(
+        `${GRAPH_API_BASE}/${stored.igUserId}?fields=followers_count`,
+        stored.accessToken
+      );
+      followersCount = profile.followers_count ?? null;
+    } catch {
+      // followers_count unavailable
+    }
+
+    return Response.json({ summary, followersCount });
   } catch (error) {
     return errorResponse(error);
   }

@@ -15,6 +15,7 @@ type Props = {
   postCount: number;
   prevPostCount: number;
   periodDays: number;
+  followersCount: number | null;
   highlight: string;
   onHighlightChange: (value: string) => void;
 };
@@ -30,6 +31,7 @@ export function ReportPage1({
   postCount,
   prevPostCount,
   periodDays,
+  followersCount,
   highlight,
   onHighlightChange,
 }: Props) {
@@ -49,6 +51,12 @@ export function ReportPage1({
           @{account.handle} ・ {config.label}
         </div>
         <div style={{ fontSize: 12, color: "#999", marginTop: 6 }}>{periodLabel}</div>
+        {followersCount != null && (
+          <div style={{ marginTop: 10, display: "inline-block", padding: "6px 16px", background: "#f8f9fa", borderRadius: 20 }}>
+            <span style={{ fontSize: 11, color: "#888" }}>フォロワー </span>
+            <span style={{ fontSize: 18, fontWeight: 700 }}>{followersCount.toLocaleString("ja-JP")}</span>
+          </div>
+        )}
       </div>
 
       {/* Metrics comparison table */}

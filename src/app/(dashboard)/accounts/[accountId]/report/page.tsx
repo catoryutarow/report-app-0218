@@ -43,6 +43,7 @@ export default function ReportPageRoute() {
   const [previousMetrics, setPreviousMetrics] = useState<Record<string, number>>({});
   const [posts, setPosts] = useState<Post[]>([]);
   const [prevPostCount, setPrevPostCount] = useState(0);
+  const [followersCount, setFollowersCount] = useState<number | null>(null);
   const [monthlySummaries, setMonthlySummaries] = useState<MonthlySummary[]>([]);
 
   // Editable text
@@ -106,6 +107,7 @@ export default function ReportPageRoute() {
       if (!curRes.ok) { toast.error(curData.error ?? "今期間のデータ取得に失敗"); return; }
 
       const curMetrics: Record<string, number> = curData.summary ?? {};
+      if (curData.followersCount != null) setFollowersCount(curData.followersCount);
       const prevMetrics: Record<string, number> = prevRes.ok ? (prevData.summary ?? {}) : {};
 
       // Get follower delta for current & previous periods (30-day limit)
@@ -324,6 +326,7 @@ export default function ReportPageRoute() {
             postCount={posts.length}
             prevPostCount={prevPostCount}
             periodDays={periodDays}
+            followersCount={followersCount}
             highlight={highlight}
             onHighlightChange={setHighlight}
           />
