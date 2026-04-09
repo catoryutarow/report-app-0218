@@ -206,6 +206,59 @@ export async function updateMonthlySummary(
   );
 }
 
+// ---- Reports ----
+
+export type Report = {
+  id?: string;
+  periodStart: Timestamp;
+  periodEnd: Timestamp;
+  highlight: string;
+  analysis: string;
+  nextActions: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+};
+
+function reportsRef(accountId: string) {
+  return collection(db(), "accounts", accountId, "reports");
+}
+
+export async function getReport(
+  accountId: string,
+  reportId: string
+): Promise<Report | null> {
+  const snap = await getDoc(doc(db(), "accounts", accountId, "reports", reportId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as Report;
+}
+
+export async function getReports(accountId: string): Promise<Report[]> {
+  const snap = await getDocs(reportsRef(accountId));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as Report)
+    .sort((a, b) => (b.updatedAt?.toDate?.()?.getTime() ?? 0) - (a.updatedAt?.toDate?.()?.getTime() ?? 0));
+}
+
+export async function saveReport(
+  accountId: string,
+  reportId: string | null,
+  data: Omit<Report, "id" | "createdAt" | "updatedAt">
+): Promise<string> {
+  if (reportId) {
+    await updateDoc(
+      doc(db(), "accounts", accountId, "reports", reportId),
+      { ...data, updatedAt: Timestamp.now() } as DocumentData
+    );
+    return reportId;
+  }
+  const ref = await addDoc(reportsRef(accountId), {
+    ...data,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  return ref.id;
+}
+
 function snapshotsRef(accountId: string) {
   return collection(db(), "accounts", accountId, "snapshots");
 }
