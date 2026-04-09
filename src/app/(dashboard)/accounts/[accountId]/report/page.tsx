@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Timestamp } from "firebase/firestore";
 import {
   getAccount,
-  getMonthlySummaries,
   saveReport,
   getReports,
   type Account,
@@ -57,8 +56,6 @@ export default function ReportPageRoute() {
       try {
         const acc = await getAccount(accountId);
         setAccount(acc);
-        const ms = await getMonthlySummaries(accountId);
-        setMonthlySummaries(ms);
 
         // Load latest report if exists
         const reports = await getReports(accountId);
@@ -165,6 +162,34 @@ export default function ReportPageRoute() {
         }).length;
         setPrevPostCount(prevMediaCount);
       }
+
+      // Fetch monthly trend data (past 3 months) live from API
+      toast.info("月次推移を取得中...");
+      const trendMonths: MonthlySummary[] = [];
+      for (let i = 2; i >= 0; i--) {
+        const mStart = new Date(endDate.getFullYear(), endDate.getMonth() - i, 1);
+        const mEnd = new Date(endDate.getFullYear(), endDate.getMonth() - i + 1, 0);
+        try {
+          const mRes = await fetch("/api/ig/account/insights", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ accountId, periodStart: mStart.toISOString(), periodEnd: mEnd.toISOString() }),
+          });
+          const mData = await mRes.json();
+          if (mRes.ok && mData.summary) {
+            trendMonths.push({
+              periodStart: Timestamp.fromDate(mStart),
+              periodEnd: Timestamp.fromDate(mEnd),
+              label: `${mStart.getFullYear()}年 ${mStart.getMonth() + 1}月`,
+              metrics: mData.summary,
+              importedAt: Timestamp.now(),
+            });
+          }
+        } catch {
+          // skip failed month
+        }
+      }
+      setMonthlySummaries(trendMonths);
 
       toast.success("レポートデータを取得しました");
     } catch (e) {
