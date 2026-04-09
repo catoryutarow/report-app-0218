@@ -113,11 +113,8 @@ export function mapAccountInsights(
   for (const metric of insights) {
     // metric_type=total_value returns { total_value: { value: N } }
     if (metric.total_value != null) {
-      if (metric.name === "follower_count") {
-        // total_value for follower_count is absolute, not delta — skip
-      } else {
-        summary[metric.name] = metric.total_value.value;
-      }
+      const key = metric.name === "follows_and_unfollows" ? "follows" : metric.name;
+      summary[key] = metric.total_value.value;
       continue;
     }
 
@@ -134,9 +131,8 @@ export function mapAccountInsights(
       case "total_interactions":
         summary[metric.name] = values.reduce((a, b) => a + b, 0);
         break;
-      case "follower_count":
-        // Daily snapshots — delta = last - first
-        summary.follows = values[values.length - 1] - values[0];
+      case "follows_and_unfollows":
+        summary.follows = values.reduce((a, b) => a + b, 0);
         break;
     }
   }
