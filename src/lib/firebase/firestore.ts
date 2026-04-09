@@ -162,6 +162,50 @@ export type Snapshot = {
   channelSummary?: Record<string, number>;
 };
 
+// ---- Monthly Summaries ----
+
+export type MonthlySummary = {
+  id?: string;
+  periodStart: Timestamp;
+  periodEnd: Timestamp;
+  label: string;
+  metrics: Record<string, number>;
+  importedAt: Timestamp;
+};
+
+function monthlySummariesRef(accountId: string) {
+  return collection(db(), "accounts", accountId, "monthlySummaries");
+}
+
+export async function getMonthlySummaries(accountId: string): Promise<MonthlySummary[]> {
+  const snap = await getDocs(monthlySummariesRef(accountId));
+  const summaries = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as MonthlySummary);
+  return summaries.sort((a, b) => {
+    const aTime = b.periodEnd?.toDate?.()?.getTime() ?? 0;
+    const bTime = a.periodEnd?.toDate?.()?.getTime() ?? 0;
+    return aTime - bTime;
+  });
+}
+
+export async function createMonthlySummary(
+  accountId: string,
+  data: Omit<MonthlySummary, "id">
+): Promise<string> {
+  const ref = await addDoc(monthlySummariesRef(accountId), data);
+  return ref.id;
+}
+
+export async function updateMonthlySummary(
+  accountId: string,
+  summaryId: string,
+  data: Partial<Omit<MonthlySummary, "id">>
+): Promise<void> {
+  await updateDoc(
+    doc(db(), "accounts", accountId, "monthlySummaries", summaryId),
+    data as DocumentData
+  );
+}
+
 function snapshotsRef(accountId: string) {
   return collection(db(), "accounts", accountId, "snapshots");
 }
