@@ -19,12 +19,15 @@ import {
   getSnapshots,
   getSnapshotPosts,
   deleteSnapshot,
-  updateSnapshot,
   createSnapshotWithPosts,
   updateSnapshotPost,
+  getMonthlySummaries,
+  createMonthlySummary,
+  updateMonthlySummary,
   type Account,
   type Post,
   type Snapshot,
+  type MonthlySummary,
 } from "@/lib/firebase/firestore";
 import { getPlatformConfig } from "@/lib/platforms";
 import type { PlatformConfig } from "@/lib/platforms/types";
@@ -39,7 +42,7 @@ import { CsvUploadDialog } from "@/components/posts/CsvUploadDialog";
 import { QuickEntryDialog } from "@/components/posts/QuickEntryDialog";
 import { PostEditDialog } from "@/components/posts/PostEditDialog";
 import { PlatformGuide } from "@/components/accounts/PlatformGuide";
-import { ChannelSummaryDialog } from "@/components/kpi/ChannelSummaryDialog";
+import { MonthlySummaryPanel } from "@/components/kpi/MonthlySummaryPanel";
 import { IgImportDialog } from "@/components/ig/IgImportDialog";
 import { toPlatformId } from "@/lib/ig/mapper";
 import { calculatePostKpis } from "@/lib/kpi/calculator";
@@ -91,7 +94,6 @@ export default function AccountDetailPage() {
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
   const [quickEntryOpen, setQuickEntryOpen] = useState(false);
   const [addToSnapshotOpen, setAddToSnapshotOpen] = useState(false);
-  const [channelSummaryOpen, setChannelSummaryOpen] = useState(false);
   const [igImportOpen, setIgImportOpen] = useState(false);
   const [igConnected, setIgConnected] = useState(false);
   const [fetchingSummary, setFetchingSummary] = useState(false);
@@ -105,6 +107,7 @@ export default function AccountDetailPage() {
   const [currentPosts, setCurrentPosts] = useState<Post[]>([]);
   const [comparePosts, setComparePosts] = useState<Post[]>([]);
   const [allPermalinks, setAllPermalinks] = useState<Set<string>>(new Set());
+  const [monthlySummaries, setMonthlySummaries] = useState<MonthlySummary[]>([]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -134,6 +137,16 @@ export default function AccountDetailPage() {
         setAllPermalinks(links);
       } else {
         setAllPermalinks(new Set());
+      }
+
+      // Load monthly summaries for IG accounts
+      if (acc && IG_API_PLATFORMS.has(acc.platform)) {
+        try {
+          const ms = await getMonthlySummaries(accountId);
+          setMonthlySummaries(ms);
+        } catch {
+          console.warn("月次サマリー取得スキップ");
+        }
       }
 
       // Auto-select latest snapshot
@@ -257,16 +270,21 @@ export default function AccountDetailPage() {
   }, [currentPosts.length, selectedSnapshotId, igConnected]);
 
   const handleFetchMonthlySummary = async () => {
-    if (!selectedSnapshot || !selectedSnapshotId) return;
+    if (!account) return;
     setFetchingSummary(true);
     try {
+      // Default period: previous month
+      const now = new Date();
+      const periodStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const periodEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
       const res = await fetch("/api/ig/account/insights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accountId,
-          periodStart: selectedSnapshot.periodStart.toDate().toISOString(),
-          periodEnd: selectedSnapshot.periodEnd.toDate().toISOString(),
+          periodStart: periodStart.toISOString(),
+          periodEnd: periodEnd.toISOString(),
         }),
       });
       const data = await res.json();
@@ -274,15 +292,29 @@ export default function AccountDetailPage() {
         toast.error(data.error ?? "サマリー取得に失敗しました");
         return;
       }
-      await updateSnapshot(accountId, selectedSnapshotId, {
-        channelSummary: data.summary,
-      });
-      setSnapshots((prev) =>
-        prev.map((s) =>
-          s.id === selectedSnapshotId ? { ...s, channelSummary: data.summary } : s
-        )
-      );
-      toast.success("月サマリーを取得しました");
+
+      const label = `${periodStart.getFullYear()}年 ${periodStart.getMonth() + 1}月`;
+
+      // Update if same label exists, otherwise create
+      const existing = monthlySummaries.find((s) => s.label === label);
+      if (existing?.id) {
+        await updateMonthlySummary(accountId, existing.id, {
+          metrics: data.summary,
+          importedAt: Timestamp.now(),
+        });
+      } else {
+        await createMonthlySummary(accountId, {
+          periodStart: Timestamp.fromDate(periodStart),
+          periodEnd: Timestamp.fromDate(periodEnd),
+          label,
+          metrics: data.summary,
+          importedAt: Timestamp.now(),
+        });
+      }
+
+      const ms = await getMonthlySummaries(accountId);
+      setMonthlySummaries(ms);
+      toast.success(`${label} のサマリーを取得しました`);
     } catch {
       toast.error("サマリー取得に失敗しました");
     } finally {
@@ -517,21 +549,19 @@ export default function AccountDetailPage() {
                 )}
                 週次比較
               </Button>
-              {selectedSnapshot && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleFetchMonthlySummary}
-                  disabled={fetchingSummary}
-                >
-                  {fetchingSummary ? (
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1" />
-                  ) : (
-                    <CalendarSearch className="mr-1 h-4 w-4" />
-                  )}
-                  月サマリー取得
-                </Button>
-              )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleFetchMonthlySummary}
+                disabled={fetchingSummary}
+              >
+                {fetchingSummary ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1" />
+                ) : (
+                  <CalendarSearch className="mr-1 h-4 w-4" />
+                )}
+                月サマリー取得
+              </Button>
             </>
           )}
 
@@ -571,12 +601,6 @@ export default function AccountDetailPage() {
                     <Link2 className="mr-2 h-4 w-4" />
                     API連携を設定
                   </Link>
-                </DropdownMenuItem>
-              )}
-              {selectedSnapshot && !CSV_PRIMARY_PLATFORMS.has(account.platform) && (
-                <DropdownMenuItem onClick={() => setChannelSummaryOpen(true)}>
-                  <CalendarSearch className="mr-2 h-4 w-4" />
-                  サマリー手動入力
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -653,7 +677,6 @@ export default function AccountDetailPage() {
             posts={currentPosts}
             kpiDefs={config.kpis}
             targets={account.targets}
-            snapshot={selectedSnapshot}
           />
 
           {/* Tabs */}
@@ -665,6 +688,9 @@ export default function AccountDetailPage() {
               <TabsTrigger value="top">TOP投稿</TabsTrigger>
               <TabsTrigger value="posts">投稿一覧</TabsTrigger>
               <TabsTrigger value="trend">全体推移</TabsTrigger>
+              {IG_API_PLATFORMS.has(account.platform) && igConnected && (
+                <TabsTrigger value="monthly">月次サマリー</TabsTrigger>
+              )}
               <TabsTrigger value="guide">使い方</TabsTrigger>
             </TabsList>
 
@@ -696,6 +722,12 @@ export default function AccountDetailPage() {
             <TabsContent value="trend" className="mt-4">
               <SnapshotTrendChart snapshots={snapshots} />
             </TabsContent>
+
+            {IG_API_PLATFORMS.has(account.platform) && igConnected && (
+              <TabsContent value="monthly" className="mt-4">
+                <MonthlySummaryPanel summaries={monthlySummaries} config={config} />
+              </TabsContent>
+            )}
 
             <TabsContent value="guide" className="mt-4">
               <PlatformGuide config={config} targets={account.targets} />
@@ -741,21 +773,6 @@ export default function AccountDetailPage() {
           onComplete={() => {
             fetchData();
             setAddToSnapshotOpen(false);
-          }}
-        />
-      )}
-
-      {/* Channel Summary Dialog */}
-      {selectedSnapshot && (
-        <ChannelSummaryDialog
-          open={channelSummaryOpen}
-          onOpenChange={setChannelSummaryOpen}
-          accountId={accountId}
-          snapshot={selectedSnapshot}
-          config={config}
-          onComplete={() => {
-            fetchData();
-            setChannelSummaryOpen(false);
           }}
         />
       )}

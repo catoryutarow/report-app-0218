@@ -155,8 +155,8 @@ export function MonthlySummaryPanel({ summaries, config }: Props) {
                 <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip
-                  formatter={(value: number) => [
-                    value.toLocaleString("ja-JP"),
+                  formatter={(value) => [
+                    Number(value).toLocaleString("ja-JP"),
                     selectedLabel,
                   ]}
                 />
