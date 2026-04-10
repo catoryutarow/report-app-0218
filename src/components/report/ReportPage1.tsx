@@ -76,18 +76,18 @@ export function ReportPage1({
           </thead>
           <tbody>
             {displayMetrics.map((m) => {
-              const cur = currentMetrics[m.key] ?? 0;
-              const prev = previousMetrics[m.key] ?? 0;
-              const diff = cur - prev;
-              const pct = prev > 0 ? ((cur - prev) / prev) * 100 : null;
-              const cls = diff > 0 ? "text-positive" : diff < 0 ? "text-negative" : "";
+              const cur = currentMetrics[m.key] ?? null;
+              const prev = previousMetrics[m.key] ?? null;
+              const diff = cur != null && prev != null ? cur - prev : null;
+              const pct = diff != null && prev != null && prev > 0 ? (diff / prev) * 100 : null;
+              const cls = diff != null ? (diff > 0 ? "text-positive" : diff < 0 ? "text-negative" : "") : "";
               return (
                 <tr key={m.key}>
                   <td>{m.label}</td>
-                  <td className="num" style={{ color: "#888" }}>{prev.toLocaleString("ja-JP")}</td>
-                  <td className="num" style={{ fontWeight: 700 }}>{cur.toLocaleString("ja-JP")}</td>
-                  <td className={`num ${cls}`}>{diff > 0 ? "+" : ""}{diff.toLocaleString("ja-JP")}</td>
-                  <td className={`num ${cls}`}>{pct != null ? `${diff > 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}</td>
+                  <td className="num" style={{ color: "#888" }}>{prev != null ? prev.toLocaleString("ja-JP") : "—"}</td>
+                  <td className="num" style={{ fontWeight: 700 }}>{cur != null ? cur.toLocaleString("ja-JP") : "—"}</td>
+                  <td className={`num ${cls}`}>{diff != null ? `${diff > 0 ? "+" : ""}${diff.toLocaleString("ja-JP")}` : "—"}</td>
+                  <td className={`num ${cls}`}>{pct != null ? `${diff! > 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}</td>
                 </tr>
               );
             })}

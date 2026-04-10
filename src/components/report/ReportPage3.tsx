@@ -25,7 +25,7 @@ export function ReportPage3({
   );
 
   const displayMetrics = config.metrics.filter(
-    (m) => summaries.some((s) => s.metrics[m.key] != null && s.metrics[m.key] !== 0)
+    (m) => summaries.some((s) => s.metrics[m.key] != null)
   );
 
   // Bar chart data (reach)
@@ -33,8 +33,8 @@ export function ReportPage3({
 
   // Average
   const avg = (key: string) => {
-    const vals = sorted.map((s) => s.metrics[key] ?? 0);
-    return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    const vals = sorted.map((s) => s.metrics[key]).filter((v): v is number => v != null);
+    return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
   };
 
   return (
@@ -86,17 +86,23 @@ export function ReportPage3({
             </tr>
           </thead>
           <tbody>
-            {displayMetrics.map((m) => (
-              <tr key={m.key}>
-                <td>{m.label}</td>
-                {sorted.map((s, i) => (
-                  <td key={s.id} className="num" style={i === sorted.length - 1 ? { fontWeight: 700 } : { color: "#888" }}>
-                    {(s.metrics[m.key] ?? 0).toLocaleString("ja-JP")}
-                  </td>
-                ))}
-                <td className="num" style={{ color: "#888" }}>{Math.round(avg(m.key)).toLocaleString("ja-JP")}</td>
-              </tr>
-            ))}
+            {displayMetrics.map((m) => {
+              const a = avg(m.key);
+              return (
+                <tr key={m.key}>
+                  <td>{m.label}</td>
+                  {sorted.map((s, i) => {
+                    const val = s.metrics[m.key];
+                    return (
+                      <td key={s.id} className="num" style={i === sorted.length - 1 ? { fontWeight: 700 } : { color: "#888" }}>
+                        {val != null ? val.toLocaleString("ja-JP") : "—"}
+                      </td>
+                    );
+                  })}
+                  <td className="num" style={{ color: "#888" }}>{a != null ? Math.round(a).toLocaleString("ja-JP") : "—"}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
