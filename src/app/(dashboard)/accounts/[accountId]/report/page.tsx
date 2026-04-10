@@ -106,9 +106,13 @@ export default function ReportPageRoute() {
       const prevData = await prevRes.json();
       if (!curRes.ok) { toast.error(curData.error ?? "今期間のデータ取得に失敗"); return; }
 
-      const curMetrics: Record<string, number> = curData.summary ?? {};
+      // Start from a shallow copy; explicitly strip `follows` so it only
+      // gets set below via follower-delta (Account Insights does not provide it).
+      const curMetrics: Record<string, number> = { ...(curData.summary ?? {}) };
+      delete curMetrics.follows;
       if (curData.followersCount != null) setFollowersCount(curData.followersCount);
-      const prevMetrics: Record<string, number> = prevRes.ok ? (prevData.summary ?? {}) : {};
+      const prevMetrics: Record<string, number> = { ...(prevRes.ok ? (prevData.summary ?? {}) : {}) };
+      delete prevMetrics.follows;
 
       // Get follower delta for current & previous periods (30-day limit)
       try {
@@ -126,8 +130,8 @@ export default function ReportPageRoute() {
         ]);
         const curFc = await curFcRes.json();
         const prevFc = await prevFcRes.json();
-        if (curFcRes.ok && curFc.follows != null) curMetrics.follows = curFc.follows;
-        if (prevFcRes.ok && prevFc.follows != null) prevMetrics.follows = prevFc.follows;
+        if (curFcRes.ok && typeof curFc.follows === "number") curMetrics.follows = curFc.follows;
+        if (prevFcRes.ok && typeof prevFc.follows === "number") prevMetrics.follows = prevFc.follows;
       } catch {
         // follower delta unavailable
       }
@@ -206,7 +210,11 @@ export default function ReportPageRoute() {
           });
           const mData = await mRes.json();
           if (mRes.ok && mData.summary) {
-            const metrics: Record<string, number> = mData.summary;
+            // Start from a shallow copy; explicitly strip `follows` so it only
+            // gets set below via follower-delta (Account Insights does not
+            // provide follows; anything still here would be misleading).
+            const metrics: Record<string, number> = { ...mData.summary };
+            delete metrics.follows;
 
             // follower_count only works for last 30 days — try for recent months
             const daysSinceStart = Math.floor((today.getTime() - mStart.getTime()) / 86400000);
@@ -218,7 +226,7 @@ export default function ReportPageRoute() {
                   body: JSON.stringify({ accountId, periodStart: mStart.toISOString(), periodEnd: mEnd.toISOString() }),
                 });
                 const fcData = await fcRes.json();
-                if (fcRes.ok && fcData.follows != null) {
+                if (fcRes.ok && typeof fcData.follows === "number") {
                   metrics.follows = fcData.follows;
                 }
               } catch {
